@@ -1,0 +1,1143 @@
+<title>Mesa de Luz</title>
+
+<style>
+  /* ---------- tokens: light is the base, both dark states redefine ---------- */
+  :root {
+    --ground:      #EEF0F3;
+    --surface:     #FFFFFF;
+    --surface-2:   #E4E8ED;
+    --ink:         #1B2028;
+    --ink-soft:    #4A5462;
+    --ink-mute:    #6E7A8A;
+    --line:        #D2D9E2;
+    --line-strong: #B6C0CD;
+    --accent:      #9E620F;
+    --accent-lift: #B9741A;
+    --accent-wash: #F6E9D3;
+    --tray:        #1B7A8A;
+    --tray-wash:   #DCEEF1;
+    --focus:       #B9741A;
+    --shadow:      0 1px 2px rgba(20,28,38,.08), 0 8px 24px -12px rgba(20,28,38,.22);
+
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --mono: ui-monospace, "SF Mono", "JetBrains Mono", "Roboto Mono", Menlo, Consolas, monospace;
+
+    --r: 3px;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground:      #12171E;
+      --surface:     #1A212B;
+      --surface-2:   #222B37;
+      --ink:         #E6EAF0;
+      --ink-soft:    #B4BECC;
+      --ink-mute:    #8695A6;
+      --line:        #2A3441;
+      --line-strong: #3C4956;
+      --accent:      #E8A33D;
+      --accent-lift: #F2B75C;
+      --accent-wash: #2E2618;
+      --tray:        #5FC3D4;
+      --tray-wash:   #163035;
+      --focus:       #E8A33D;
+      --shadow:      0 1px 2px rgba(0,0,0,.4), 0 10px 30px -14px rgba(0,0,0,.7);
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --ground:      #12171E;
+    --surface:     #1A212B;
+    --surface-2:   #222B37;
+    --ink:         #E6EAF0;
+    --ink-soft:    #B4BECC;
+    --ink-mute:    #8695A6;
+    --line:        #2A3441;
+    --line-strong: #3C4956;
+    --accent:      #E8A33D;
+    --accent-lift: #F2B75C;
+    --accent-wash: #2E2618;
+    --tray:        #5FC3D4;
+    --tray-wash:   #163035;
+    --focus:       #E8A33D;
+    --shadow:      0 1px 2px rgba(0,0,0,.4), 0 10px 30px -14px rgba(0,0,0,.7);
+  }
+
+  /* ---------- base ---------- */
+  * { box-sizing: border-box; }
+
+  /* o atributo hidden precisa vencer as classes de layout que setam display */
+  [hidden] { display: none !important; }
+
+  body {
+    margin: 0;
+    background: var(--ground);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 15px;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--focus);
+    outline-offset: 2px;
+  }
+
+  .wrap {
+    max-width: 1240px;
+    margin: 0 auto;
+    padding: 0 24px 72px;
+  }
+
+  /* ---------- engine rail ---------- */
+  .rail {
+    border-bottom: 1px solid var(--line);
+    background: var(--surface);
+  }
+  .rail-in {
+    max-width: 1240px;
+    margin: 0 auto;
+    padding: 10px 24px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    flex-wrap: wrap;
+  }
+  .label {
+    font-family: var(--mono);
+    font-size: 10.5px;
+    letter-spacing: .16em;
+    text-transform: uppercase;
+    color: var(--ink-mute);
+  }
+  .engine-dot {
+    width: 7px; height: 7px; border-radius: 50%;
+    background: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-wash);
+    flex: none;
+  }
+  .engine-dot.auto { background: var(--tray); box-shadow: 0 0 0 3px var(--tray-wash); }
+  .rail-note {
+    font-size: 12.5px;
+    color: var(--ink-soft);
+    margin-left: auto;
+  }
+
+  /* ---------- masthead ---------- */
+  header.mast {
+    padding: 40px 0 26px;
+    border-bottom: 1px solid var(--line);
+    margin-bottom: 26px;
+  }
+  .mast h1 {
+    margin: 0;
+    font-size: clamp(30px, 4.4vw, 46px);
+    line-height: 1.02;
+    font-weight: 600;
+    letter-spacing: -.025em;
+    text-wrap: balance;
+  }
+  .mast h1 em {
+    font-style: normal;
+    color: var(--accent);
+  }
+  .mast p {
+    margin: 12px 0 0;
+    max-width: 62ch;
+    color: var(--ink-soft);
+    font-size: 15.5px;
+  }
+
+  /* ---------- console grid ---------- */
+  .console {
+    display: grid;
+    grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+    gap: 26px;
+    align-items: start;
+  }
+  @media (max-width: 940px) {
+    .console { grid-template-columns: minmax(0, 1fr); }
+  }
+
+  .panel {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--r);
+    box-shadow: var(--shadow);
+  }
+  .panel + .panel { margin-top: 20px; }
+
+  .panel-head {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    padding: 14px 18px;
+    border-bottom: 1px solid var(--line);
+  }
+  .panel-head h2 {
+    margin: 0;
+    font-size: 12px;
+    font-family: var(--mono);
+    letter-spacing: .16em;
+    text-transform: uppercase;
+    font-weight: 600;
+  }
+  .panel-head .count {
+    font-family: var(--mono);
+    font-size: 11.5px;
+    color: var(--ink-mute);
+    margin-left: auto;
+    font-variant-numeric: tabular-nums;
+  }
+  .panel-body { padding: 18px; }
+
+  /* ---------- dropzone ---------- */
+  .drop {
+    border: 1px dashed var(--line-strong);
+    border-radius: var(--r);
+    padding: 26px 18px;
+    text-align: center;
+    color: var(--ink-mute);
+    cursor: pointer;
+    background: var(--ground);
+    transition: border-color .15s, background .15s, color .15s;
+  }
+  .drop:hover, .drop.over {
+    border-color: var(--accent);
+    color: var(--accent);
+    background: var(--accent-wash);
+  }
+  .drop strong { display: block; color: var(--ink); font-weight: 600; font-size: 14.5px; }
+  .drop.over strong { color: var(--accent); }
+  .drop span { font-size: 12.5px; display: block; margin-top: 4px; }
+
+  /* ---------- thumbs ---------- */
+  .thumbs {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(104px, 1fr));
+    gap: 10px;
+    margin-top: 14px;
+  }
+  .thumbs:empty { display: none; }
+  .thumb {
+    position: relative;
+    border: 1px solid var(--line);
+    border-radius: var(--r);
+    overflow: hidden;
+    background: var(--surface-2);
+    aspect-ratio: 1 / 1;
+  }
+  .thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .thumb .idx {
+    position: absolute; top: 0; left: 0;
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: .1em;
+    padding: 3px 6px;
+    background: var(--surface);
+    color: var(--ink-soft);
+    border-right: 1px solid var(--line);
+    border-bottom: 1px solid var(--line);
+  }
+  .thumb button.kill {
+    position: absolute; top: 4px; right: 4px;
+    width: 22px; height: 22px;
+    border: 1px solid var(--line);
+    background: var(--surface);
+    color: var(--ink-soft);
+    border-radius: var(--r);
+    cursor: pointer;
+    font-size: 14px;
+    line-height: 1;
+    padding: 0;
+  }
+  .thumb button.kill:hover { color: var(--accent); border-color: var(--accent); }
+
+  /* ---------- forms ---------- */
+  .field { display: flex; flex-direction: column; gap: 5px; }
+  .field > .label { margin-bottom: 1px; }
+
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  @media (max-width: 560px) { .grid-2 { grid-template-columns: 1fr; } }
+
+  .stack { display: flex; flex-direction: column; gap: 14px; }
+
+  input[type="text"], textarea, select {
+    width: 100%;
+    font-family: var(--sans);
+    font-size: 14px;
+    color: var(--ink);
+    background: var(--ground);
+    border: 1px solid var(--line);
+    border-radius: var(--r);
+    padding: 8px 10px;
+  }
+  textarea { resize: vertical; font-family: var(--mono); font-size: 12.5px; line-height: 1.6; }
+  input::placeholder, textarea::placeholder { color: var(--ink-mute); }
+  input:focus, textarea:focus, select:focus { border-color: var(--accent); }
+
+  input[type="range"] { width: 100%; accent-color: var(--accent); }
+
+  /* ---------- destination tabs ---------- */
+  .tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0;
+    border: 1px solid var(--line);
+    border-radius: var(--r);
+    overflow: hidden;
+  }
+  .tabs button {
+    flex: 1 1 auto;
+    font-family: var(--mono);
+    font-size: 10.5px;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    padding: 9px 10px;
+    border: 0;
+    border-right: 1px solid var(--line);
+    background: var(--surface);
+    color: var(--ink-mute);
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  .tabs button:last-child { border-right: 0; }
+  .tabs button:hover { color: var(--ink); background: var(--surface-2); }
+  .tabs button[aria-selected="true"] {
+    background: var(--accent-wash);
+    color: var(--accent);
+    font-weight: 600;
+  }
+
+  /* ---------- buttons ---------- */
+  .btn {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    padding: 9px 14px;
+    border-radius: var(--r);
+    border: 1px solid var(--line-strong);
+    background: var(--surface);
+    color: var(--ink);
+    cursor: pointer;
+  }
+  .btn:hover { border-color: var(--accent); color: var(--accent); }
+  .btn.primary {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: var(--ground);
+    font-weight: 600;
+  }
+  .btn.primary:hover { background: var(--accent-lift); border-color: var(--accent-lift); color: var(--ground); }
+  .btn[hidden] { display: none; }
+  .btn-row { display: flex; flex-wrap: wrap; gap: 8px; }
+
+  /* ---------- output ---------- */
+  .out {
+    font-family: var(--mono);
+    font-size: 13px;
+    line-height: 1.7;
+    white-space: pre-wrap;
+    word-break: break-word;
+    background: var(--ground);
+    border: 1px solid var(--line);
+    border-left: 2px solid var(--accent);
+    border-radius: var(--r);
+    padding: 16px 18px;
+    min-height: 120px;
+    color: var(--ink);
+  }
+  .out.empty { color: var(--ink-mute); border-left-color: var(--line-strong); }
+
+  .meter {
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+    padding: 10px 18px;
+    border-top: 1px solid var(--line);
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--ink-mute);
+    font-variant-numeric: tabular-nums;
+  }
+  .meter b { color: var(--ink-soft); font-weight: 600; }
+
+  /* ---------- briefing / details ---------- */
+  details.step {
+    border: 1px solid var(--line);
+    border-radius: var(--r);
+    background: var(--ground);
+  }
+  details.step + details.step { margin-top: 10px; }
+  details.step > summary {
+    cursor: pointer;
+    padding: 11px 14px;
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    list-style: none;
+  }
+  details.step > summary::-webkit-details-marker { display: none; }
+  details.step > summary::before {
+    content: "+";
+    display: inline-block;
+    width: 14px;
+    color: var(--accent);
+    font-weight: 700;
+  }
+  details.step[open] > summary::before { content: "\2212"; }
+  details.step > div { padding: 0 14px 14px; }
+  details.step p { margin: 0 0 10px; font-size: 13px; color: var(--ink-soft); }
+
+  .saved-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+  .saved-list:empty::after {
+    content: "Nada salvo ainda.";
+    font-size: 12.5px;
+    color: var(--ink-mute);
+  }
+  .saved-list li {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    border: 1px solid var(--line);
+    border-radius: var(--r);
+    padding: 7px 10px;
+    background: var(--ground);
+    font-size: 13px;
+  }
+  .saved-list li span.name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .saved-list li button {
+    border: 0; background: none; cursor: pointer;
+    font-family: var(--mono); font-size: 10.5px; letter-spacing: .08em;
+    text-transform: uppercase; color: var(--ink-mute); padding: 2px 4px;
+  }
+  .saved-list li button:hover { color: var(--accent); }
+
+  .toast {
+    position: fixed;
+    left: 50%;
+    bottom: 26px;
+    transform: translateX(-50%) translateY(14px);
+    background: var(--ink);
+    color: var(--ground);
+    font-family: var(--mono);
+    font-size: 11.5px;
+    letter-spacing: .06em;
+    padding: 9px 16px;
+    border-radius: var(--r);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity .18s ease, transform .18s ease;
+    z-index: 40;
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { transition: none !important; animation: none !important; }
+  }
+
+  footer.foot {
+    margin-top: 34px;
+    padding-top: 18px;
+    border-top: 1px solid var(--line);
+    font-size: 12.5px;
+    color: var(--ink-mute);
+    max-width: 70ch;
+  }
+</style>
+
+<div class="rail">
+  <div class="rail-in">
+    <span class="engine-dot" id="engineDot" aria-hidden="true"></span>
+    <span class="label" id="engineLabel">Motor: verificando</span>
+    <span class="rail-note" id="engineNote">Checando se esta página pode chamar o Claude direto.</span>
+  </div>
+</div>
+
+<div class="wrap">
+
+  <header class="mast">
+    <h1>Mesa de <em>Luz</em></h1>
+    <p>Coloque as referências na mesa, extraia os atributos que realmente importam — luz, lente, paleta, textura — e componha o prompt final no formato de cada ferramenta.</p>
+  </header>
+
+  <div class="console">
+
+    <!-- ================= coluna esquerda ================= -->
+    <div>
+      <section class="panel">
+        <div class="panel-head">
+          <h2>Mesa</h2>
+          <span class="count" id="refCount">0 refs</span>
+        </div>
+        <div class="panel-body">
+          <div class="drop" id="drop" tabindex="0" role="button" aria-label="Adicionar imagens de referência">
+            <strong>Arraste as referências</strong>
+            <span>ou clique para escolher — JPG, PNG, WebP</span>
+          </div>
+          <input type="file" id="file" accept="image/*" multiple hidden>
+          <div class="thumbs" id="thumbs"></div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head"><h2>Leitura das referências</h2></div>
+        <div class="panel-body stack">
+
+          <details class="step" id="stepAuto" hidden>
+            <summary>Ler com o Claude</summary>
+            <div>
+              <p>Esta página tem acesso ao motor. Ela envia as referências e preenche os atributos sozinha.</p>
+              <button class="btn primary" id="btnAuto">Analisar referências</button>
+            </div>
+          </details>
+
+          <details class="step" open>
+            <summary>Passo 1 — pedido de análise</summary>
+            <div>
+              <p>Copie o pedido abaixo, cole no chat do Claude junto com as imagens e ele devolve um bloco JSON.</p>
+              <div class="btn-row">
+                <button class="btn" id="btnBrief">Copiar pedido de análise</button>
+                <button class="btn" id="btnBriefShow">Ver pedido</button>
+              </div>
+              <textarea id="briefText" rows="8" hidden readonly aria-label="Pedido de análise"></textarea>
+            </div>
+          </details>
+
+          <details class="step" open>
+            <summary>Passo 2 — colar a resposta</summary>
+            <div>
+              <p>Cole aqui o JSON que o Claude devolveu. Os campos ao lado se preenchem sozinhos.</p>
+              <textarea id="jsonIn" rows="6" placeholder='{ "assunto": "...", "luz": "...", ... }' aria-label="JSON de retorno"></textarea>
+              <div class="btn-row" style="margin-top:10px">
+                <button class="btn primary" id="btnParse">Aplicar leitura</button>
+                <button class="btn" id="btnClearJson">Limpar</button>
+              </div>
+            </div>
+          </details>
+
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head">
+          <h2>Salvos</h2>
+          <span class="count" id="savedCount">0</span>
+        </div>
+        <div class="panel-body">
+          <ul class="saved-list" id="savedList"></ul>
+        </div>
+      </section>
+    </div>
+
+    <!-- ================= coluna direita ================= -->
+    <div>
+      <section class="panel">
+        <div class="panel-head"><h2>Atributos</h2></div>
+        <div class="panel-body stack">
+          <div class="field">
+            <label class="label" for="f_assunto">Assunto</label>
+            <input type="text" id="f_assunto" data-attr="assunto" placeholder="o que está em cena, quem, fazendo o quê">
+          </div>
+          <div class="grid-2">
+            <div class="field">
+              <label class="label" for="f_composicao">Composição</label>
+              <input type="text" id="f_composicao" data-attr="composicao" placeholder="enquadramento, ângulo, plano">
+            </div>
+            <div class="field">
+              <label class="label" for="f_luz">Luz</label>
+              <input type="text" id="f_luz" data-attr="luz" placeholder="direção, dureza, hora do dia">
+            </div>
+            <div class="field">
+              <label class="label" for="f_paleta">Paleta</label>
+              <input type="text" id="f_paleta" data-attr="paleta" placeholder="cores dominantes, temperatura">
+            </div>
+            <div class="field">
+              <label class="label" for="f_lente">Câmera e lente</label>
+              <input type="text" id="f_lente" data-attr="lente" placeholder="35mm, f/1.8, profundidade rasa">
+            </div>
+            <div class="field">
+              <label class="label" for="f_textura">Textura</label>
+              <input type="text" id="f_textura" data-attr="textura" placeholder="grão, superfície, acabamento">
+            </div>
+            <div class="field">
+              <label class="label" for="f_mood">Clima</label>
+              <input type="text" id="f_mood" data-attr="mood" placeholder="a sensação que a imagem passa">
+            </div>
+          </div>
+          <div class="field">
+            <label class="label" for="f_estilo">Referência de estilo</label>
+            <input type="text" id="f_estilo" data-attr="estilo" placeholder="editorial de moda anos 90, still de produto, documental">
+          </div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head"><h2>Composição</h2></div>
+        <div class="panel-body stack">
+
+          <div class="field">
+            <span class="label">Destino</span>
+            <div class="tabs" role="tablist" id="tabs">
+              <button role="tab" data-dest="mj" aria-selected="true">Midjourney</button>
+              <button role="tab" data-dest="flux" aria-selected="false">Flux / Nano Banana</button>
+              <button role="tab" data-dest="video" aria-selected="false">Vídeo</button>
+              <button role="tab" data-dest="brief" aria-selected="false">Briefing</button>
+            </div>
+          </div>
+
+          <div class="grid-2">
+            <div class="field">
+              <label class="label" for="f_ar">Proporção</label>
+              <select id="f_ar">
+                <option value="1:1">1:1 — feed</option>
+                <option value="4:5">4:5 — feed vertical</option>
+                <option value="9:16" selected>9:16 — story / reels</option>
+                <option value="16:9">16:9 — landscape</option>
+                <option value="3:2">3:2 — foto</option>
+                <option value="21:9">21:9 — cinema</option>
+              </select>
+            </div>
+            <div class="field" id="wrapStylize">
+              <label class="label" for="f_stylize">Intensidade de estilo <span id="stylizeVal">250</span></label>
+              <input type="range" id="f_stylize" min="0" max="1000" step="50" value="250">
+            </div>
+            <div class="field" id="wrapMove" hidden>
+              <label class="label" for="f_move">Movimento de câmera</label>
+              <input type="text" id="f_move" placeholder="dolly lento à frente, orbit, estática">
+            </div>
+            <div class="field" id="wrapDur" hidden>
+              <label class="label" for="f_dur">Duração</label>
+              <input type="text" id="f_dur" value="5s" placeholder="5s">
+            </div>
+          </div>
+
+          <div class="field">
+            <label class="label" for="f_neg">Fora do quadro</label>
+            <input type="text" id="f_neg" placeholder="texto, marca d'água, deformação de mãos">
+          </div>
+        </div>
+
+        <div class="panel-head" style="border-top:1px solid var(--line)">
+          <h2>Prompt</h2>
+          <span class="count" id="destLabel">midjourney</span>
+        </div>
+        <div class="panel-body stack">
+          <div class="out empty" id="out">Preencha os atributos — o prompt se monta aqui em tempo real.</div>
+          <div class="btn-row">
+            <button class="btn primary" id="btnCopy">Copiar prompt</button>
+            <button class="btn" id="btnSave">Salvar</button>
+            <button class="btn" id="btnDownload" hidden>Baixar .txt</button>
+            <button class="btn" id="btnReset">Limpar tudo</button>
+          </div>
+        </div>
+        <div class="meter">
+          <span><b id="mChars">0</b> caracteres</span>
+          <span><b id="mWords">0</b> palavras</span>
+          <span><b id="mFilled">0/8</b> atributos</span>
+        </div>
+      </section>
+    </div>
+
+  </div>
+
+  <footer class="foot">
+    As referências ficam só no seu navegador — nada é enviado a lugar nenhum, exceto quando você mesmo copia o pedido de análise para o chat.
+  </footer>
+</div>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+(() => {
+  "use strict";
+
+  const ATTRS = ["assunto", "composicao", "luz", "paleta", "lente", "textura", "mood", "estilo"];
+  const $ = (id) => document.getElementById(id);
+
+  const state = {
+    refs: [],
+    dest: "mj",
+    saved: [],
+    engine: null
+  };
+
+  /* ---------------- toast ---------------- */
+  let toastTimer;
+  function toast(msg) {
+    const t = $("toast");
+    t.textContent = msg;
+    t.classList.add("show");
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => t.classList.remove("show"), 2000);
+  }
+
+  /* ---------------- engine adapter ----------------
+     Duas superfícies possíveis. Nenhuma é garantida:
+     a página pode não ter motor nenhum, e aí o fluxo manual
+     dos Passos 1 e 2 continua funcionando inteiro.        */
+  async function detectEngine() {
+    try {
+      const c = window.claude;
+      if (c && typeof c.complete === "function") {
+        return { mode: "auto", complete: (p) => c.complete(p) };
+      }
+    } catch (_) { /* sem motor — segue no manual */ }
+    return { mode: "manual" };
+  }
+
+  async function setupEngine() {
+    state.engine = await detectEngine();
+    const dot = $("engineDot"), label = $("engineLabel"), note = $("engineNote");
+    if (state.engine.mode === "auto") {
+      dot.classList.add("auto");
+      label.textContent = "Motor: automático";
+      note.textContent = "A página consegue chamar o Claude daqui.";
+      $("stepAuto").hidden = false;
+    } else {
+      label.textContent = "Motor: manual";
+      note.textContent = "Sem motor nesta superfície — use os Passos 1 e 2 para trazer a leitura do chat.";
+    }
+  }
+
+  /* ---------------- downloads capability ---------------- */
+  let downloads = null;
+  async function setupDownloads() {
+    try {
+      if (window.claude && typeof window.claude.use === "function") {
+        downloads = await window.claude.use("downloads");
+      }
+    } catch (_) { downloads = null; }
+    $("btnDownload").hidden = !downloads;
+  }
+
+  /* ---------------- referências ---------------- */
+  function addFiles(list) {
+    const files = Array.from(list).filter((f) => f.type.startsWith("image/"));
+    if (!files.length) return;
+    let pending = files.length;
+    files.forEach((f) => {
+      const fr = new FileReader();
+      fr.onload = () => {
+        state.refs.push({ name: f.name, url: fr.result });
+        if (--pending === 0) renderRefs();
+      };
+      fr.onerror = () => {
+        toast("Não consegui ler " + f.name);
+        if (--pending === 0) renderRefs();
+      };
+      fr.readAsDataURL(f);
+    });
+  }
+
+  function renderRefs() {
+    const box = $("thumbs");
+    box.textContent = "";
+    state.refs.forEach((r, i) => {
+      const cell = document.createElement("div");
+      cell.className = "thumb";
+
+      const img = document.createElement("img");
+      img.src = r.url;
+      img.alt = r.name;
+
+      const idx = document.createElement("span");
+      idx.className = "idx";
+      idx.textContent = String(i + 1).padStart(2, "0");
+
+      const kill = document.createElement("button");
+      kill.className = "kill";
+      kill.type = "button";
+      kill.textContent = "×";
+      kill.setAttribute("aria-label", "Remover " + r.name);
+      kill.addEventListener("click", () => {
+        state.refs.splice(i, 1);
+        renderRefs();
+      });
+
+      cell.append(img, idx, kill);
+      box.appendChild(cell);
+    });
+    $("refCount").textContent = state.refs.length + (state.refs.length === 1 ? " ref" : " refs");
+    buildBrief();
+  }
+
+  /* ---------------- pedido de análise ---------------- */
+  function buildBrief() {
+    const n = state.refs.length;
+    const alvo = { mj: "Midjourney", flux: "Flux / Nano Banana", video: "vídeo (Veo, Sora, Kling)", brief: "briefing de campanha" }[state.dest];
+    const txt =
+`Analise ${n > 0 ? (n === 1 ? "a imagem de referência anexada" : "as " + n + " imagens de referência anexadas") : "a imagem de referência anexada"} como diretor de fotografia, com destino final ${alvo}.
+
+Descreva o que a imagem realmente mostra — não o que seria bonito. Se algo não estiver visível, diga o que está visível no lugar, nunca invente.
+
+Responda SÓ com este bloco JSON, sem texto antes ou depois:
+
+{
+  "assunto": "o que está em cena, quem, fazendo o quê",
+  "composicao": "enquadramento, ângulo de câmera, plano, regra de composição",
+  "luz": "direção, dureza, temperatura, hora do dia, fonte aparente",
+  "paleta": "3 a 5 cores dominantes e a temperatura geral",
+  "lente": "distância focal aparente, abertura, profundidade de campo",
+  "textura": "grão, superfície, acabamento, nitidez",
+  "mood": "a sensação que a imagem transmite, em poucas palavras",
+  "estilo": "a que gênero ou escola visual isso pertence"
+}
+
+${n > 1 ? "Com várias referências, descreva o denominador comum entre elas — o que se repete é o estilo." : ""}`;
+    $("briefText").value = txt.trim();
+    return txt.trim();
+  }
+
+  /* ---------------- leitura do JSON ---------------- */
+  function applyJson() {
+    const raw = $("jsonIn").value.trim();
+    if (!raw) { toast("Cole o JSON primeiro."); return; }
+
+    const start = raw.indexOf("{");
+    const end = raw.lastIndexOf("}");
+    if (start === -1 || end === -1 || end < start) {
+      toast("Não achei um bloco JSON aí dentro.");
+      return;
+    }
+
+    let data;
+    try {
+      data = JSON.parse(raw.slice(start, end + 1));
+    } catch (_) {
+      toast("O JSON veio quebrado — confira se copiou o bloco inteiro.");
+      return;
+    }
+
+    let hits = 0;
+    ATTRS.forEach((a) => {
+      const v = data[a];
+      if (typeof v === "string" && v.trim()) {
+        const el = document.querySelector('[data-attr="' + a + '"]');
+        if (el) { el.value = v.trim(); hits++; }
+      }
+    });
+
+    if (!hits) { toast("O JSON não trouxe nenhum campo conhecido."); return; }
+    compose();
+    toast(hits + (hits === 1 ? " atributo preenchido" : " atributos preenchidos"));
+  }
+
+  /* ---------------- composição ---------------- */
+  function readAttrs() {
+    const out = {};
+    ATTRS.forEach((a) => {
+      const el = document.querySelector('[data-attr="' + a + '"]');
+      out[a] = el ? el.value.trim() : "";
+    });
+    return out;
+  }
+
+  function joinParts(parts) {
+    return parts.filter((p) => p && p.trim()).join(", ");
+  }
+
+  function composeMidjourney(a, cfg) {
+    const body = joinParts([a.assunto, a.composicao, a.luz, a.paleta, a.lente, a.textura, a.mood, a.estilo]);
+    if (!body) return "";
+    let s = body;
+    if (cfg.neg) s += " --no " + cfg.neg;
+    s += " --ar " + cfg.ar + " --style raw --stylize " + cfg.stylize;
+    return s;
+  }
+
+  function composeFlux(a, cfg) {
+    const seg = [];
+    if (a.assunto) seg.push(a.assunto + ".");
+    if (a.composicao) seg.push("Enquadrado em " + lower(a.composicao) + ".");
+    if (a.luz) seg.push("Iluminação: " + lower(a.luz) + ".");
+    if (a.paleta) seg.push("Paleta de " + lower(a.paleta) + ".");
+    if (a.lente) seg.push("Registrado com " + lower(a.lente) + ".");
+    if (a.textura) seg.push("Textura de " + lower(a.textura) + ".");
+    if (a.mood) seg.push("O clima é " + lower(a.mood) + ".");
+    if (a.estilo) seg.push("No estilo de " + lower(a.estilo) + ".");
+    if (!seg.length) return "";
+    seg.push("Proporção " + cfg.ar + ".");
+    if (cfg.neg) seg.push("Evitar: " + lower(cfg.neg) + ".");
+    return seg.join(" ");
+  }
+
+  function composeVideo(a, cfg) {
+    const rows = [];
+    if (a.assunto) rows.push("CENA: " + a.assunto);
+    if (a.composicao) rows.push("PLANO: " + a.composicao);
+    if (cfg.move) rows.push("CÂMERA: " + cfg.move);
+    if (a.luz) rows.push("LUZ: " + a.luz);
+    if (a.paleta) rows.push("COR: " + a.paleta);
+    if (a.lente) rows.push("ÓPTICA: " + a.lente);
+    if (a.textura) rows.push("TEXTURA: " + a.textura);
+    if (a.mood) rows.push("CLIMA: " + a.mood);
+    if (a.estilo) rows.push("ESTILO: " + a.estilo);
+    if (!rows.length) return "";
+    rows.push("FORMATO: " + cfg.ar + ", " + (cfg.dur || "5s") + ", som ambiente");
+    if (cfg.neg) rows.push("EVITAR: " + cfg.neg);
+    return rows.join("\n");
+  }
+
+  function composeBrief(a, cfg) {
+    const rows = [];
+    const push = (k, v) => { if (v) rows.push("**" + k + "** — " + v); };
+    push("Cena", a.assunto);
+    push("Enquadramento", a.composicao);
+    push("Luz", a.luz);
+    push("Paleta", a.paleta);
+    push("Óptica", a.lente);
+    push("Acabamento", a.textura);
+    push("Clima", a.mood);
+    push("Território visual", a.estilo);
+    if (!rows.length) return "";
+    rows.unshift("## Direção de arte\n");
+    rows.push("\n**Formato de entrega** — " + cfg.ar + (state.refs.length ? " · " + state.refs.length + " referência(s) na mesa" : ""));
+    if (cfg.neg) rows.push("**Fora do escopo** — " + cfg.neg);
+    return rows.join("\n");
+  }
+
+  function lower(s) {
+    if (!s) return s;
+    return s.charAt(0).toLowerCase() + s.slice(1);
+  }
+
+  function compose() {
+    const a = readAttrs();
+    const cfg = {
+      ar: $("f_ar").value,
+      stylize: $("f_stylize").value,
+      neg: $("f_neg").value.trim(),
+      move: $("f_move").value.trim(),
+      dur: $("f_dur").value.trim()
+    };
+
+    const fn = { mj: composeMidjourney, flux: composeFlux, video: composeVideo, brief: composeBrief }[state.dest];
+    const text = fn(a, cfg);
+
+    const out = $("out");
+    if (text) {
+      out.textContent = text;
+      out.classList.remove("empty");
+    } else {
+      out.textContent = "Preencha os atributos — o prompt se monta aqui em tempo real.";
+      out.classList.add("empty");
+    }
+
+    const filled = ATTRS.filter((k) => a[k]).length;
+    $("mChars").textContent = text.length;
+    $("mWords").textContent = text ? text.trim().split(/\s+/).length : 0;
+    $("mFilled").textContent = filled + "/" + ATTRS.length;
+  }
+
+  function currentText() {
+    const out = $("out");
+    return out.classList.contains("empty") ? "" : out.textContent;
+  }
+
+  /* ---------------- destino ---------------- */
+  function setDest(d) {
+    state.dest = d;
+    document.querySelectorAll("#tabs button").forEach((b) => {
+      b.setAttribute("aria-selected", String(b.dataset.dest === d));
+    });
+    const isVideo = d === "video";
+    $("wrapMove").hidden = !isVideo;
+    $("wrapDur").hidden = !isVideo;
+    $("wrapStylize").hidden = d !== "mj";
+    $("destLabel").textContent = { mj: "midjourney", flux: "flux / nano banana", video: "vídeo", brief: "briefing" }[d];
+    buildBrief();
+    compose();
+  }
+
+  /* ---------------- salvos ---------------- */
+  function loadSaved() {
+    try {
+      const raw = localStorage.getItem("mesa-de-luz.saved");
+      state.saved = raw ? JSON.parse(raw) : [];
+    } catch (_) { state.saved = []; }
+    renderSaved();
+  }
+
+  function persistSaved() {
+    try { localStorage.setItem("mesa-de-luz.saved", JSON.stringify(state.saved)); }
+    catch (_) { /* modo privado / storage bloqueado — salvos vivem só nesta sessão */ }
+  }
+
+  function renderSaved() {
+    const ul = $("savedList");
+    ul.textContent = "";
+    state.saved.forEach((s, i) => {
+      const li = document.createElement("li");
+
+      const name = document.createElement("span");
+      name.className = "name";
+      name.textContent = s.label;
+
+      const load = document.createElement("button");
+      load.type = "button";
+      load.textContent = "abrir";
+      load.addEventListener("click", () => {
+        setDest(s.dest);
+        ATTRS.forEach((a) => {
+          const el = document.querySelector('[data-attr="' + a + '"]');
+          if (el) el.value = s.attrs[a] || "";
+        });
+        $("f_ar").value = s.ar || "9:16";
+        $("f_neg").value = s.neg || "";
+        compose();
+        toast("Aberto.");
+      });
+
+      const del = document.createElement("button");
+      del.type = "button";
+      del.textContent = "apagar";
+      del.addEventListener("click", () => {
+        state.saved.splice(i, 1);
+        persistSaved();
+        renderSaved();
+      });
+
+      li.append(name, load, del);
+      ul.appendChild(li);
+    });
+    $("savedCount").textContent = String(state.saved.length);
+  }
+
+  /* ---------------- copiar ---------------- */
+  async function copy(text, okMsg) {
+    if (!text) { toast("Não há nada para copiar ainda."); return; }
+    try {
+      await navigator.clipboard.writeText(text);
+      toast(okMsg);
+    } catch (_) {
+      const ta = document.createElement("textarea");
+      ta.value = text;
+      ta.style.position = "fixed";
+      ta.style.opacity = "0";
+      document.body.appendChild(ta);
+      ta.select();
+      let ok = false;
+      try { ok = document.execCommand("copy"); } catch (_) { ok = false; }
+      document.body.removeChild(ta);
+      toast(ok ? okMsg : "O navegador bloqueou a cópia — selecione o texto e copie à mão.");
+    }
+  }
+
+  /* ---------------- análise automática ---------------- */
+  async function runAuto() {
+    if (!state.engine || state.engine.mode !== "auto") return;
+    const btn = $("btnAuto");
+    btn.disabled = true;
+    const original = btn.textContent;
+    btn.textContent = "Analisando…";
+    try {
+      const reply = await state.engine.complete(buildBrief());
+      $("jsonIn").value = typeof reply === "string" ? reply : JSON.stringify(reply);
+      applyJson();
+    } catch (_) {
+      toast("O motor não respondeu — siga pelos Passos 1 e 2.");
+    } finally {
+      btn.disabled = false;
+      btn.textContent = original;
+    }
+  }
+
+  /* ---------------- listeners ---------------- */
+  const drop = $("drop"), fileIn = $("file");
+
+  drop.addEventListener("click", () => fileIn.click());
+  drop.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" || e.key === " ") { e.preventDefault(); fileIn.click(); }
+  });
+  drop.addEventListener("dragover", (e) => { e.preventDefault(); drop.classList.add("over"); });
+  drop.addEventListener("dragleave", () => drop.classList.remove("over"));
+  drop.addEventListener("drop", (e) => {
+    e.preventDefault();
+    drop.classList.remove("over");
+    if (e.dataTransfer && e.dataTransfer.files) addFiles(e.dataTransfer.files);
+  });
+  fileIn.addEventListener("change", () => { addFiles(fileIn.files); fileIn.value = ""; });
+
+  document.querySelectorAll("#tabs button").forEach((b) => {
+    b.addEventListener("click", () => setDest(b.dataset.dest));
+  });
+
+  ATTRS.forEach((a) => {
+    const el = document.querySelector('[data-attr="' + a + '"]');
+    if (el) el.addEventListener("input", compose);
+  });
+  ["f_ar", "f_neg", "f_move", "f_dur"].forEach((id) => $(id).addEventListener("input", compose));
+  $("f_ar").addEventListener("change", compose);
+  $("f_stylize").addEventListener("input", () => {
+    $("stylizeVal").textContent = $("f_stylize").value;
+    compose();
+  });
+
+  $("btnBrief").addEventListener("click", () => copy(buildBrief(), "Pedido copiado — cole no chat com as imagens."));
+  $("btnBriefShow").addEventListener("click", () => {
+    const t = $("briefText");
+    t.hidden = !t.hidden;
+    $("btnBriefShow").textContent = t.hidden ? "Ver pedido" : "Esconder pedido";
+  });
+  $("btnParse").addEventListener("click", applyJson);
+  $("btnClearJson").addEventListener("click", () => { $("jsonIn").value = ""; });
+  $("btnAuto").addEventListener("click", runAuto);
+
+  $("btnCopy").addEventListener("click", () => copy(currentText(), "Prompt copiado."));
+
+  $("btnSave").addEventListener("click", () => {
+    const a = readAttrs();
+    if (!ATTRS.some((k) => a[k])) { toast("Preencha ao menos um atributo antes de salvar."); return; }
+    const label = (a.assunto || a.estilo || "sem título").slice(0, 46);
+    state.saved.unshift({
+      label: label,
+      dest: state.dest,
+      attrs: a,
+      ar: $("f_ar").value,
+      neg: $("f_neg").value.trim()
+    });
+    state.saved = state.saved.slice(0, 30);
+    persistSaved();
+    renderSaved();
+    toast("Salvo.");
+  });
+
+  $("btnDownload").addEventListener("click", async () => {
+    const text = currentText();
+    if (!text) { toast("Não há prompt para baixar ainda."); return; }
+    if (!downloads) return;
+    try {
+      await downloads.save({ filename: "prompt-" + state.dest + ".txt", data: text });
+    } catch (_) {
+      toast("O download não foi concluído.");
+    }
+  });
+
+  $("btnReset").addEventListener("click", () => {
+    ATTRS.forEach((a) => {
+      const el = document.querySelector('[data-attr="' + a + '"]');
+      if (el) el.value = "";
+    });
+    $("f_neg").value = "";
+    $("f_move").value = "";
+    $("jsonIn").value = "";
+    state.refs = [];
+    renderRefs();
+    compose();
+    toast("Mesa limpa.");
+  });
+
+  /* ---------------- boot ---------------- */
+  setDest("mj");
+  loadSaved();
+  buildBrief();
+  compose();
+  setupEngine();
+  setupDownloads();
+})();
+</script>
