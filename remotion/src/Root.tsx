@@ -8,6 +8,10 @@ import {DeixaComEla} from './DeixaComEla';
 import {ForcaDaMulher} from './ForcaDaMulher';
 import {Assinatura55670} from './Assinatura55670';
 import {EuToFechadao} from './EuToFechadao';
+import {Bandeira} from './Bandeira';
+import {EuToComAndrea} from './EuToComAndrea';
+import {Numeros55670Rosa} from './Numeros55670Rosa';
+import {Coracao13, Coracao14} from './CoracaoMarca';
 
 const palco = {
   durationInFrames: DURACAO,
@@ -27,6 +31,11 @@ export const RemotionRoot: React.FC = () => {
       <Composition id="ForcaDaMulher" component={ForcaDaMulher} {...palco} />
       <Composition id="EuToFechadao" component={EuToFechadao} {...palco} />
       <Composition id="Assinatura55670" component={Assinatura55670} {...palco} />
+      <Composition id="Bandeira" component={Bandeira} {...palco} />
+      <Composition id="EuToComAndrea" component={EuToComAndrea} {...palco} />
+      <Composition id="Numeros55670Rosa" component={Numeros55670Rosa} {...palco} />
+      <Composition id="Coracao13" component={Coracao13} {...palco} />
+      <Composition id="Coracao14" component={Coracao14} {...palco} />
       <Composition
         id="MesaDeLuz"
         component={MesaDeLuz}

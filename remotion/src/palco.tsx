@@ -155,7 +155,15 @@ export const Peca: React.FC<{
       {camada.partes
         ? camada.partes.map((p) => {
             const ordem = revelaDaEsquerda ? p.i : camada.partes!.length - 1 - p.i;
-            const s = suaviza((local - ordem * passoReveal) / 0.15);
+            const surge = local - ordem * passoReveal;
+            const s = suaviza(surge / 0.15);
+            // Depois de aparecer, cada peça ganha vida própria dentro do grupo:
+            // sem isso um número ou uma tag viram um bloco parado assim que a
+            // revelação acaba, e a tela morre no meio do clipe.
+            const viva = suaviza((surge - 0.25) / 0.5);
+            const ondaY = Math.sin(t * 2.3 + p.i * 0.9) * 5 * viva;
+            const ondaGiro = Math.sin(t * 1.8 + p.i * 0.7) * 1.2 * viva;
+            const pulsa = 1 + pulso(t + p.i * 0.06, MEIO_TEMPO) * 0.035 * viva;
             const comum: React.CSSProperties = {
               position: 'absolute',
               left: p.dx,
@@ -163,7 +171,9 @@ export const Peca: React.FC<{
               width: p.w,
               height: camada.h,
               opacity: s,
-              transform: `translateY(${(1 - s) * 26}px) scale(${0.8 + s * 0.2})`,
+              transform: `translateY(${(1 - s) * 26 + ondaY}px) rotate(${ondaGiro}deg) scale(${
+                (0.8 + s * 0.2) * pulsa
+              })`,
             };
             return camada.cor ? (
               <div

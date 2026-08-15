@@ -1,0 +1,11 @@
+{
+  "nome": "02",
+  "fundo": "#E4F1FB",
+  "bandeira": {
+    "arquivo": "bandeira.png",
+    "x": 386.29,
+    "y": -0.04,
+    "w": 1327.5,
+    "h": 1401.5
+  }
+}

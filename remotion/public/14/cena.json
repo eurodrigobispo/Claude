@@ -1,0 +1,11 @@
+{
+  "nome": "14",
+  "fundo": "#E4F1FB",
+  "coracao": {
+    "arquivo": "coracao.png",
+    "x": 593.25,
+    "y": 230.25,
+    "w": 733.5,
+    "h": 619.5
+  }
+}
