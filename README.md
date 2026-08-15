@@ -58,4 +58,9 @@ node test/smoke.mjs
 ## Vídeo
 
 Há também um projeto Remotion em `remotion/`, separado da página — React, com
-build próprio. Instruções em `remotion/README.md`.
+build próprio. São as treze telas animadas da campanha Andréa Castro 55670,
+para rodar num telão durante a gravação de um lyric video.
+
+- Como instalar e rodar: `remotion/README.md`
+- Por que cada tela ficou como ficou: `remotion/DECISOES.md`
+- Contexto para quem (ou o que) for continuar o trabalho: `CLAUDE.md` na raiz
