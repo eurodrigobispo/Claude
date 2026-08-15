@@ -41,6 +41,7 @@ type Camada = {
   id: string;
   arquivo?: string;
   grupo?: Peca[];
+  letras?: Letra[];
   x: number;
   y: number;
   w: number;
@@ -48,24 +49,33 @@ type Camada = {
   opacidade: number;
 };
 
-type Estilo = 'pop' | 'sobe' | 'esquerda' | 'direita' | 'carimbo';
+type Estilo = 'pop' | 'sobe' | 'esquerda' | 'direita' | 'carimbo' | 'letras';
+
+type Letra = {i: number; arquivo: string; dx: number; w: number};
 
 /**
- * A frase entra na cadência em que se fala: "tô / com / Andréa" numa levada de
- * batidas seguidas, respiro de um compasso, e então "porque / ela / representa".
- * Os tempos estão em batidas da faixa (0,40596 s cada), não em segundos soltos.
+ * A frase segue o canto, não um espaçamento cômodo. Medindo o fluxo espectral
+ * na faixa da voz (250–3500 Hz), o trecho cantado vai de ~1,65 s a ~3,56 s e o
+ * ataque mais forte de toda a faixa cai em 3,245 s — exatamente a batida 8.
+ * É onde "representa" entra, de modo que a palavra fecha junto com o canto,
+ * perto dos 4 s. "porque" e "ela" vêm coladas nas duas batidas anteriores:
+ * antes havia um respiro de compasso inteiro ali, e era ele que atrasava tudo.
  */
 const ROTEIRO: Record<string, {batida: number; estilo: Estilo; fase: number; balanco?: number}> = {
-  to: {batida: 2, estilo: 'esquerda', fase: 0.0, balanco: 1.2},
-  com: {batida: 3, estilo: 'sobe', fase: 1.1, balanco: 1.35},
-  andrea: {batida: 4, estilo: 'carimbo', fase: 2.0, balanco: 1.0},
-  deputada: {batida: 6, estilo: 'sobe', fase: 3.3, balanco: 0.8},
-  rosto: {batida: 8, estilo: 'pop', fase: 2.6, balanco: 0.75},
-  porque: {batida: 12, estilo: 'direita', fase: 0.7, balanco: 1.25},
-  ela: {batida: 13, estilo: 'pop', fase: 4.1, balanco: 1.4},
-  representa: {batida: 14, estilo: 'carimbo', fase: 1.6, balanco: 1.1},
-  badge: {batida: 15, estilo: 'pop', fase: 5.2, balanco: 1.6},
+  to: {batida: 1, estilo: 'esquerda', fase: 0.0, balanco: 1.2},
+  com: {batida: 2, estilo: 'sobe', fase: 1.1, balanco: 1.35},
+  andrea: {batida: 3, estilo: 'carimbo', fase: 2.0, balanco: 1.0},
+  rosto: {batida: 4, estilo: 'pop', fase: 2.6, balanco: 0.75},
+  porque: {batida: 6, estilo: 'direita', fase: 0.7, balanco: 1.25},
+  ela: {batida: 7, estilo: 'pop', fase: 4.1, balanco: 1.4},
+  representa: {batida: 8, estilo: 'carimbo', fase: 1.6, balanco: 1.1},
+  badge: {batida: 8.5, estilo: 'pop', fase: 5.2, balanco: 1.6},
+  // a tag não é cantada: entra por último, letra por letra
+  deputada: {batida: 9.5, estilo: 'letras', fase: 3.3, balanco: 0.8},
 };
+
+/** Letra por letra, oito por batida — some rápido no lugar sem virar leitura. */
+const PASSO_LETRA = BATIDA / 8;
 
 const ORDEM = [
   'to',
@@ -79,7 +89,8 @@ const ORDEM = [
   'badge',
 ];
 
-const FIM_DAS_ENTRADAS = emBatidas(15) + 0.6;
+/** Última peça a assentar é a tag, letra por letra, encerrando ~4,7 s. */
+const FIM_DAS_ENTRADAS = emBatidas(9.5) + 16 * PASSO_LETRA + 0.3;
 const CICLO_ACENTO = COMPASSO * 2;
 
 const Peca: React.FC<{c: Camada; t: number; frame: number; fps: number}> = ({
@@ -124,17 +135,24 @@ const Peca: React.FC<{c: Camada; t: number; frame: number; fps: number}> = ({
       escala = interpolate(e, [0, 1], [1.95, 1]);
       giro = interpolate(e, [0, 1], [-8, 0]);
       break;
+    case 'letras':
+      // o container fica parado; cada letra se resolve sozinha
+      break;
     default:
       escala = interpolate(e, [0, 1], [0.12, 1]);
       giro = interpolate(e, [0, 1], [-34, 0]);
       break;
   }
 
-  const visivel = interpolate(local, [0, 0.15], [0, 1], {
-    extrapolateLeft: 'clamp',
-    extrapolateRight: 'clamp',
-  });
-  const assentou = interpolate(local, [0.33, 1], [0, 1], {
+  const ehLetras = m.estilo === 'letras';
+  const visivel = ehLetras
+    ? 1
+    : interpolate(local, [0, 0.15], [0, 1], {
+        extrapolateLeft: 'clamp',
+        extrapolateRight: 'clamp',
+      });
+  // no caso das letras o balanço só começa depois que a última assentou
+  const assentou = interpolate(local, ehLetras ? [0.95, 1.6] : [0.33, 1], [0, 1], {
     extrapolateLeft: 'clamp',
     extrapolateRight: 'clamp',
   });
@@ -176,7 +194,28 @@ const Peca: React.FC<{c: Camada; t: number; frame: number; fps: number}> = ({
         willChange: 'transform',
       }}
     >
-      {c.grupo ? (
+      {c.letras ? (
+        c.letras.map((L) => {
+          const surge = local - L.i * PASSO_LETRA;
+          const k = Math.min(1, Math.max(0, surge / 0.13));
+          const s = k * k * (3 - 2 * k);
+          return (
+            <Img
+              key={L.i}
+              src={staticFile(`09/${L.arquivo}`)}
+              style={{
+                position: 'absolute',
+                left: L.dx,
+                top: 0,
+                width: L.w,
+                height: c.h,
+                opacity: s,
+                transform: `translateY(${(1 - s) * 9}px)`,
+              }}
+            />
+          );
+        })
+      ) : c.grupo ? (
         // O grupo inteiro entra e balança junto — só a estrela gira por dentro,
         // então caricatura e selo nunca descolam dela.
         c.grupo.map((p) => {

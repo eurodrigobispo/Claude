@@ -119,7 +119,105 @@
       "y": 746.35,
       "w": 454.5,
       "h": 23.0,
-      "opacidade": 1
+      "opacidade": 1,
+      "letras": [
+        {
+          "i": 0,
+          "arquivo": "layers/dep_00.png",
+          "dx": 0.0,
+          "w": 22.5
+        },
+        {
+          "i": 1,
+          "arquivo": "layers/dep_01.png",
+          "dx": 30.5,
+          "w": 18.5
+        },
+        {
+          "i": 2,
+          "arquivo": "layers/dep_02.png",
+          "dx": 57.5,
+          "w": 20.0
+        },
+        {
+          "i": 3,
+          "arquivo": "layers/dep_03.png",
+          "dx": 85.5,
+          "w": 20.5
+        },
+        {
+          "i": 4,
+          "arquivo": "layers/dep_04.png",
+          "dx": 113.5,
+          "w": 21.0
+        },
+        {
+          "i": 5,
+          "arquivo": "layers/dep_05.png",
+          "dx": 137.0,
+          "w": 24.0
+        },
+        {
+          "i": 6,
+          "arquivo": "layers/dep_06.png",
+          "dx": 168.5,
+          "w": 22.5
+        },
+        {
+          "i": 7,
+          "arquivo": "layers/dep_07.png",
+          "dx": 196.5,
+          "w": 24.0
+        },
+        {
+          "i": 8,
+          "arquivo": "layers/dep_08.png",
+          "dx": 241.0,
+          "w": 18.5
+        },
+        {
+          "i": 9,
+          "arquivo": "layers/dep_09.png",
+          "dx": 267.0,
+          "w": 21.0
+        },
+        {
+          "i": 10,
+          "arquivo": "layers/dep_10.png",
+          "dx": 294.0,
+          "w": 21.0
+        },
+        {
+          "i": 11,
+          "arquivo": "layers/dep_11.png",
+          "dx": 317.5,
+          "w": 24.5
+        },
+        {
+          "i": 12,
+          "arquivo": "layers/dep_12.png",
+          "dx": 349.0,
+          "w": 22.5
+        },
+        {
+          "i": 13,
+          "arquivo": "layers/dep_13.png",
+          "dx": 379.5,
+          "w": 20.5
+        },
+        {
+          "i": 14,
+          "arquivo": "layers/dep_14.png",
+          "dx": 406.0,
+          "w": 24.0
+        },
+        {
+          "i": 15,
+          "arquivo": "layers/dep_15.png",
+          "dx": 437.5,
+          "w": 17.0
+        }
+      ]
     }
   ]
 }
