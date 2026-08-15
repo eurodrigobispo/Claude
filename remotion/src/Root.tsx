@@ -33,7 +33,7 @@ export const RemotionRoot: React.FC = () => {
         id="EuToFechadao"
         component={EuToFechadao}
         {...palco}
-        defaultProps={{transparente: false, somente: '', recorte: null}}
+        defaultProps={{transparente: false, somente: '', recorte: null, congelado: false}}
         calculateMetadata={metadadosEuToFechadao}
       />
       <Composition id="Assinatura55670" component={Assinatura55670} {...palco} />

@@ -47,7 +47,9 @@ export const EuToFechadao: React.FC<{
    * de pixels. O `x/y` é devolvido no manifesto para o editor reposicionar.
    */
   recorte?: Recorte | null;
-}> = ({transparente = false, somente = '', recorte = null}) => {
+  /** posição de repouso, sem entrada nem balanço — para exportar como imagem */
+  congelado?: boolean;
+}> = ({transparente = false, somente = '', recorte = null, congelado = false}) => {
   const frame = useCurrentFrame();
   const {fps} = useVideoConfig();
   const t = frame / fps;
@@ -88,6 +90,7 @@ export const EuToFechadao: React.FC<{
         segundos: SEGUNDOS,
         sereno: true,
         somente,
+        congelado,
       })}
     </Cena>
   );

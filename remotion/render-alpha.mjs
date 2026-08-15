@@ -32,6 +32,28 @@ const ALTURA = 1080;
  * Caixa útil de cada elemento, medida sobre o clipe inteiro. Na ordem de
  * empilhamento do card, de baixo para cima.
  */
+/**
+ * Elementos que são imagem parada: só entram e balançam de leve, sem animação
+ * interna. Exportar 15 s de ProRes para eles custava 556 MB dos 750 MB do
+ * pacote — como PNG somam 5,8 MB. Vão como imagem, e o manifesto descreve o
+ * movimento para o editor refazer no AE, que é onde ele vai querer ajustar a
+ * posição de qualquer forma.
+ */
+const ESTATICOS = {EuToFechadao: ['coracao', 'foto']};
+
+/** Entrada de cada peça, em segundos (batida da faixa = 0,40596 s). */
+const ENTRADAS = {
+  EuToFechadao: {
+    coracao: 0.20, foto: 0.41, eu: 0.81, to: 1.22, fechadao: 1.62,
+    com: 2.03, andrea: 2.23, castro: 2.64, tag: 3.25,
+  },
+};
+
+const MOVIMENTO = {
+  coracao: 'entra com pop (escala 0,12 -> 1, giro -36deg -> 0) em ~0,5 s; depois gira 22deg ao longo dos 15 s e balanca +-13 px',
+  foto: 'entra subindo 215 px (escala 0,62 -> 1) em ~0,5 s; depois balanca +-7 px, bem de leve',
+};
+
 const TELAS = {
   EuToFechadao: [
     {id: 'coracao', x: 238, y: 204, w: 748, h: 702},
@@ -151,13 +173,36 @@ const refOk =
   ).status === 0;
 if (!refOk) falhas.push('referencia');
 
+const estaticos = flag('tudo-video') ? [] : ESTATICOS[tela] ?? [];
+
 elementos.forEach((el, i) => {
-  console.log(`\n[${i + 2}] ${el.id}`);
+  const parado = estaticos.includes(el.id);
+  console.log(`\n[${i + 2}] ${el.id}${parado ? ' (imagem parada)' : ''}`);
+  const caixa = cheio ? null : {x: el.x, y: el.y, w: el.w, h: el.h};
+
+  if (parado) {
+    // um PNG na posição de repouso, no lugar de 15 s de vídeo
+    const ok =
+      spawnSync(
+        process.platform === 'win32' ? 'npx.cmd' : 'npx',
+        [
+          'remotion',
+          'still',
+          tela,
+          join(destino, `${String(i + 1).padStart(2, '0')}_${el.id}.png`),
+          '--image-format=png',
+          `--props=${JSON.stringify({transparente: true, somente: el.id, recorte: caixa, congelado: true})}`,
+        ],
+        {stdio: 'inherit'},
+      ).status === 0;
+    if (!ok) falhas.push(el.id);
+    return;
+  }
+
   const nome = `${String(i + 1).padStart(2, '0')}_${el.id}.mov`;
-  const props = cheio
-    ? {transparente: true, somente: el.id, recorte: null}
-    : {transparente: true, somente: el.id, recorte: {x: el.x, y: el.y, w: el.w, h: el.h}};
-  if (!renderizar(join(destino, nome), props)) falhas.push(el.id);
+  if (!renderizar(join(destino, nome), {transparente: true, somente: el.id, recorte: caixa})) {
+    falhas.push(el.id);
+  }
 });
 
 // manifesto de posições — sem ele o editor não sabe onde recolocar o recorte
@@ -174,16 +219,39 @@ if (!cheio) {
     `  fundo.png  (chapa de fundo, imagem parada — o halo nao pulsa)`,
     `  depois os .mov na ordem numerica`,
     ``,
-    `arquivo                        tamanho        Position (x, y)`,
-    `------------------------------ -------------- ----------------`,
+    `arquivo                        tamanho        Position (x, y)     entra em`,
+    `------------------------------ -------------- ------------------ --------`,
   ];
   elementos.forEach((el, i) => {
-    const nome = `${String(i + 1).padStart(2, '0')}_${el.id}.mov`;
+    const parado = estaticos.includes(el.id);
+    const nome = `${String(i + 1).padStart(2, '0')}_${el.id}.${parado ? 'png' : 'mov'}`;
     const px = (el.x + el.w / 2).toFixed(1);
     const py = (el.y + el.h / 2).toFixed(1);
-    linhas.push(`${nome.padEnd(30)} ${`${el.w}x${el.h}`.padEnd(14)} ${px}, ${py}`);
+    const entra = (ENTRADAS[tela] ?? {})[el.id];
+    linhas.push(
+      `${nome.padEnd(30)} ${`${el.w}x${el.h}`.padEnd(14)} ${`${px}, ${py}`.padEnd(18)} ${
+        entra !== undefined ? `${entra.toFixed(2)}s` : ''
+      }`,
+    );
   });
   linhas.push(``, `O anchor point de cada camada fica no centro dela, que é o padrão do AE.`);
+  if (estaticos.length) {
+    linhas.push(
+      ``,
+      `IMAGENS PARADAS`,
+      `Os arquivos .png sao imagem, nao video: essas pecas so entram e balancam`,
+      `de leve, sem animacao interna. Em video pesavam 556 MB dos 750 MB do`,
+      `pacote. O movimento a refazer no AE:`,
+      ``,
+    );
+    estaticos.forEach((id) => {
+      if (MOVIMENTO[id]) linhas.push(`  ${id}: ${MOVIMENTO[id]}`);
+    });
+    linhas.push(
+      ``,
+      `Nenhum dos dois pulsa, pisca ou achata — so desloca e gira, bem de leve.`,
+    );
+  }
   writeFileSync(join(destino, 'posicoes.txt'), linhas.join('\n') + '\n');
   writeFileSync(
     join(destino, 'posicoes.json'),

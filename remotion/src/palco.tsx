@@ -89,6 +89,8 @@ export const Peca: React.FC<{
   revelaDaEsquerda?: boolean;
   /** só balanço: sem acento, sem clarão, sem pulso na batida */
   sereno?: boolean;
+  /** peça parada na posição de repouso — para exportar como imagem */
+  congelado?: boolean;
 }> = ({
   pasta,
   camada,
@@ -102,14 +104,19 @@ export const Peca: React.FC<{
   passoReveal = BATIDA / 8,
   revelaDaEsquerda = true,
   sereno = false,
+  congelado = false,
 }) => {
   const entrada = emBatidas(marca.batida);
-  const local = t - entrada;
-  const e = spring({
-    frame: frame - entrada * fps,
-    fps,
-    config: {damping: 11, mass: 0.55, stiffness: 125},
-  });
+  // congelado: a peça já entrou há muito e o balanço é zerado, então o quadro
+  // sai na posição de repouso — é assim que ela vira uma imagem entregável
+  const local = congelado ? 999 : t - entrada;
+  const e = congelado
+    ? 1
+    : spring({
+        frame: frame - entrada * fps,
+        fps,
+        config: {damping: 11, mass: 0.55, stiffness: 125},
+      });
   /**
    * No modo sereno a peça entra e depois só balança: sem o acento de
    * estica-e-encolhe ao assentar (que achata), sem o clarão que ele carrega
@@ -131,7 +138,7 @@ export const Peca: React.FC<{
     extrapolateRight: 'clamp',
   });
 
-  const amp = marca.balanco ?? 1;
+  const amp = congelado ? 0 : marca.balanco ?? 1;
   const balancoY =
     (Math.sin(t * 2.0 + marca.fase) * 10 + Math.sin(t * 3.5 + marca.fase * 2) * 3.5) * amp * assentou;
   const balancoX =
@@ -302,6 +309,7 @@ export const montar = (
     fimDasEntradas: number;
     segundos: number;
     sereno?: boolean;
+    congelado?: boolean;
     /**
      * Renderiza só a peça de id igual a este. Serve para exportar cada
      * elemento no seu próprio arquivo em alfa, mantendo a tela inteira de

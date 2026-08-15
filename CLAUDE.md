@@ -171,13 +171,24 @@ testado e não resolve:
 - **Recortar a caixa útil** economiza só 15%, não os 88% que a conta de pixels
   sugere — o ProRes já comprime área transparente com eficiência. O peso está
   no conteúdo, não na tela vazia.
-- **VP9/WebM com alfa** sai 67× menor, mas o alfa **não sobrevive**: testado
-  compondo o arquivo sobre vermelho, voltou 49% de preto onde deveria estar
-  transparente. Descartado.
+- **VP9/WebM com alfa** sai 67× menor e **o alfa é real** — o container marca
+  `AlphaMode = 1`. O que falha é o After Effects, que não importa WebM
+  nativamente. (Um teste anterior sugeriu que o alfa não existia; era o
+  decodificador do próprio Remotion que não lê WebM com alfa, não o arquivo.)
 - **Sequência PNG** dá o mesmo peso do ProRes.
 
 O que valeu: a referência saiu de ProRes para H.264 (90 MB → 12 MB) e o fundo
 virou PNG parado (o halo não pulsa no modo sereno).
+
+**O que resolveu de verdade não foi codec, foi separar imagem de vídeo.** A
+foto e o coração são imagem parada — só entram e balançam de leve, sem
+animação interna. Saem como PNG (1,1 MB somados) com o movimento descrito no
+manifesto, em vez de 556 MB de vídeo. O pacote caiu de **750 MB para 195 MB**.
+Use `--tudo-video` para forçar vídeo em tudo.
+
+Também testado e descartado: **H.265 com `yuva444p10le`** é aceito pelo
+Remotion e renderiza 96× menor, mas o arquivo sai com uma faixa de vídeo só,
+sem faixa auxiliar de alfa — o canal é descartado e o transparente vira preto.
 
 Entrega de um pacote desses é por transferência de arquivo, não por chat.
 
