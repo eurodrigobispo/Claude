@@ -1,0 +1,23 @@
+{
+  "linha": {
+    "arquivo": "12/linha.png",
+    "x": 77.0,
+    "w": 1765.0,
+    "h": 388.0,
+    "espacamento": 434.0
+  },
+  "estrela": {
+    "arquivo": "12/estrela.png",
+    "x": 493.1,
+    "y": 52.7,
+    "w": 989.6,
+    "h": 996.6
+  },
+  "caricatura": {
+    "arquivo": "12/caricatura.png",
+    "x": 549.4,
+    "y": 127.7,
+    "w": 858.3,
+    "h": 945.0
+  }
+}

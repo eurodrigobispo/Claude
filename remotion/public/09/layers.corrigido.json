@@ -1,0 +1,97 @@
+{
+  "nome": "09",
+  "largura": 1920,
+  "altura": 1080,
+  "camadas": [
+    {
+      "z": 0,
+      "id": "badge",
+      "arquivo": "layers/00_Frame-2147235532.png",
+      "x": 1324.0,
+      "y": 563.38,
+      "w": 98.0,
+      "h": 95.5,
+      "opacidade": 1
+    },
+    {
+      "z": 1,
+      "id": "ela",
+      "arquivo": "layers/01_3.png",
+      "x": 1428.51,
+      "y": 563.38,
+      "w": 209.0,
+      "h": 121.0,
+      "opacidade": 1
+    },
+    {
+      "z": 2,
+      "id": "porque",
+      "arquivo": "layers/02_2.png",
+      "x": 1232.5,
+      "y": 421.12,
+      "w": 405.0,
+      "h": 137.0,
+      "opacidade": 1
+    },
+    {
+      "z": 3,
+      "id": "representa",
+      "arquivo": "layers/03_1.png",
+      "x": 1121.89,
+      "y": 692.45,
+      "w": 606.5,
+      "h": 166.0,
+      "opacidade": 1
+    },
+    {
+      "z": 4,
+      "id": "rosto",
+      "arquivo": "layers/04_1.png",
+      "x": 646.55,
+      "y": 119.53,
+      "w": 666.0,
+      "h": 666.0,
+      "opacidade": 1
+    },
+    {
+      "z": 5,
+      "id": "andrea",
+      "arquivo": "layers/g_andrea.png",
+      "x": 225.25,
+      "y": 529.9,
+      "w": 547.5,
+      "h": 183.0,
+      "opacidade": 1
+    },
+    {
+      "z": 5,
+      "id": "com",
+      "arquivo": "layers/g_com.png",
+      "x": 522.75,
+      "y": 314.9,
+      "w": 103.5,
+      "h": 186.5,
+      "opacidade": 1
+    },
+    {
+      "z": 5,
+      "id": "to",
+      "arquivo": "layers/g_to.png",
+      "x": 322.75,
+      "y": 314.9,
+      "w": 178.5,
+      "h": 186.5,
+      "opacidade": 1
+    },
+    {
+      "z": 6,
+      "id": "deputada",
+      "arquivo": "layers/06_DEPUTADA-ESTADUAL.png",
+      "x": 280.37,
+      "y": 746.35,
+      "w": 454.5,
+      "h": 23.0,
+      "opacidade": 1
+    }
+  ]
+}
