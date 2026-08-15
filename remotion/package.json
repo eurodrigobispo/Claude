@@ -9,7 +9,8 @@
     "render": "remotion render",
     "todas": "node render-todas.mjs",
     "check": "tsc --noEmit",
-    "upgrade": "remotion upgrade"
+    "upgrade": "remotion upgrade",
+    "alpha": "node render-alpha.mjs"
   },
   "dependencies": {
     "@remotion/cli": "4.0.512",

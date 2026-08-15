@@ -7,7 +7,7 @@ import {NumerosRolando} from './NumerosRolando';
 import {DeixaComEla} from './DeixaComEla';
 import {ForcaDaMulher} from './ForcaDaMulher';
 import {Assinatura55670} from './Assinatura55670';
-import {EuToFechadao} from './EuToFechadao';
+import {EuToFechadao, metadadosEuToFechadao} from './EuToFechadao';
 import {Bandeira} from './Bandeira';
 import {EuToComAndrea} from './EuToComAndrea';
 import {Numeros55670Rosa} from './Numeros55670Rosa';
@@ -29,7 +29,13 @@ export const RemotionRoot: React.FC = () => {
       <Composition id="NumerosRolando" component={NumerosRolando} {...palco} />
       <Composition id="DeixaComEla" component={DeixaComEla} {...palco} />
       <Composition id="ForcaDaMulher" component={ForcaDaMulher} {...palco} />
-      <Composition id="EuToFechadao" component={EuToFechadao} {...palco} />
+      <Composition
+        id="EuToFechadao"
+        component={EuToFechadao}
+        {...palco}
+        defaultProps={{transparente: false, somente: '', recorte: null}}
+        calculateMetadata={metadadosEuToFechadao}
+      />
       <Composition id="Assinatura55670" component={Assinatura55670} {...palco} />
       <Composition id="Bandeira" component={Bandeira} {...palco} />
       <Composition id="EuToComAndrea" component={EuToComAndrea} {...palco} />

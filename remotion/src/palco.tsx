@@ -222,7 +222,8 @@ export const Peca: React.FC<{
  * movimento de câmera fica trepidante.
  */
 export const Cena: React.FC<{
-  fundo: string;
+  /** `null` deixa o fundo transparente, para exportar em alfa */
+  fundo: string | null;
   t: number;
   segundos: number;
   halo?: number;
@@ -263,12 +264,18 @@ export const Cena: React.FC<{
   const brilhoHalo = sereno ? halo : halo + Math.max(0, pulso(t, COMPASSO)) * halo * 0.8;
 
   return (
-    <AbsoluteFill style={{backgroundColor: fundo, overflow: 'hidden'}}>
-      <AbsoluteFill
-        style={{
-          background: `radial-gradient(ellipse 60% 55% at 50% 48%, rgba(255,255,255,${brilhoHalo}) 0%, rgba(255,255,255,0) 70%)`,
-        }}
-      />
+    <AbsoluteFill
+      style={{backgroundColor: fundo ?? undefined, overflow: 'hidden'}}
+    >
+      {/* o halo é luz sobre o fundo; numa exportação em alfa ele viraria um
+          véu branco por cima do recorte, então sai junto com o fundo */}
+      {fundo === null ? null : (
+        <AbsoluteFill
+          style={{
+            background: `radial-gradient(ellipse 60% 55% at 50% 48%, rgba(255,255,255,${brilhoHalo}) 0%, rgba(255,255,255,0) 70%)`,
+          }}
+        />
+      )}
       <AbsoluteFill
         style={{
           transform: `translate(${camX}px, ${camY}px) rotate(${camGiro}deg) scale(${zoom})`,
@@ -295,11 +302,20 @@ export const montar = (
     fimDasEntradas: number;
     segundos: number;
     sereno?: boolean;
+    /**
+     * Renderiza só a peça de id igual a este. Serve para exportar cada
+     * elemento no seu próprio arquivo em alfa, mantendo a tela inteira de
+     * 1920×1080 — assim o editor empilha tudo no After Effects e cai no lugar,
+     * sem precisar reposicionar nada antes de começar.
+     */
+    somente?: string;
   },
   extras?: Record<string, {passoReveal?: number; revelaDaEsquerda?: boolean}>,
-) =>
-  camadas
+) => {
+  const {somente, ...resto} = ctx;
+  return camadas
     .filter((c) => roteiro[c.id])
+    .filter((c) => !somente || c.id === somente)
     .map((c) => (
       <Peca
         key={c.id}
@@ -307,7 +323,8 @@ export const montar = (
         camada={c}
         marca={roteiro[c.id]}
         indice={Math.max(0, ordem.indexOf(c.id))}
-        {...ctx}
+        {...resto}
         {...(extras?.[c.id] ?? {})}
       />
     ));
+};

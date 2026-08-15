@@ -1,9 +1,11 @@
 import React from 'react';
-import {useCurrentFrame, useVideoConfig} from 'remotion';
+import {AbsoluteFill, useCurrentFrame, useVideoConfig} from 'remotion';
 import cena from '../public/11/cena.json';
 import {BATIDA, emBatidas} from './ritmo';
 import {Camada, Cena, Marca, montar} from './palco';
 
+export const LARGURA = 1920;
+export const ALTURA = 1080;
 export const SEGUNDOS = 15;
 export const FPS = 30;
 export const DURACAO = Math.round(FPS * SEGUNDOS);
@@ -29,7 +31,23 @@ const ROTEIRO: Record<string, Marca> = {
 const ORDEM = ['coracao', 'foto', 'eu', 'to', 'fechadao', 'com', 'andrea', 'castro', 'tag'];
 const FIM = emBatidas(8) + 16 * (BATIDA / 8) + 0.3;
 
-export const EuToFechadao: React.FC = () => {
+/** Elementos exportáveis isoladamente, na ordem de empilhamento do card. */
+export const ELEMENTOS = ORDEM;
+
+export type Recorte = {x: number; y: number; w: number; h: number};
+
+export const EuToFechadao: React.FC<{
+  /** sem fundo, para exportar em ProRes 4444 com alfa */
+  transparente?: boolean;
+  /** exporta só este elemento */
+  somente?: string;
+  /**
+   * Reduz o quadro à caixa útil do elemento. Sem isto cada peça sai em
+   * 1920×1080 com quase tudo transparente — medido, o recorte usa 12% do peso
+   * de pixels. O `x/y` é devolvido no manifesto para o editor reposicionar.
+   */
+  recorte?: Recorte | null;
+}> = ({transparente = false, somente = '', recorte = null}) => {
   const frame = useCurrentFrame();
   const {fps} = useVideoConfig();
   const t = frame / fps;
@@ -46,9 +64,9 @@ export const EuToFechadao: React.FC = () => {
     },
   ];
 
-  return (
+  const tela = (
     <Cena
-      fundo={cena.fundo}
+      fundo={transparente ? null : cena.fundo}
       t={t}
       segundos={SEGUNDOS}
       halo={0.3}
@@ -69,7 +87,33 @@ export const EuToFechadao: React.FC = () => {
         fimDasEntradas: FIM,
         segundos: SEGUNDOS,
         sereno: true,
+        somente,
       })}
     </Cena>
   );
+
+  if (!recorte) return tela;
+
+  // o quadro vira do tamanho da caixa útil e a cena inteira desliza para dentro
+  return (
+    <AbsoluteFill style={{overflow: 'hidden'}}>
+      <div
+        style={{
+          position: 'absolute',
+          left: -recorte.x,
+          top: -recorte.y,
+          width: LARGURA,
+          height: ALTURA,
+        }}
+      >
+        {tela}
+      </div>
+    </AbsoluteFill>
+  );
 };
+
+/** Quando vem `recorte`, o quadro deixa de ser 1920×1080 e passa a ser a caixa. */
+export const metadadosEuToFechadao = ({props}: {props: {recorte?: Recorte | null}}) =>
+  props.recorte
+    ? {width: props.recorte.w, height: props.recorte.h}
+    : {width: LARGURA, height: ALTURA};
