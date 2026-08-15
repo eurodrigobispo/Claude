@@ -47,13 +47,28 @@ export const EuToFechadao: React.FC = () => {
   ];
 
   return (
-    <Cena fundo={cena.fundo} t={t} segundos={SEGUNDOS} halo={0.3}>
+    <Cena
+      fundo={cena.fundo}
+      t={t}
+      segundos={SEGUNDOS}
+      halo={0.3}
+      sereno
+      /**
+       * O card foi diagramado quase até a margem: a arte ia de x=99 a x=1765,
+       * e com o zoom da câmera sobrava pouco mais de 20 px de um lado. Comprime
+       * para o centro e a borda lateral volta.
+       */
+      enquadramento={0.84}
+      /** a foto sangra no rodapé por projeto, então a compressão parte de lá */
+      origem="50% 100%"
+    >
       {montar('11', camadas, ROTEIRO, ORDEM, {
         t,
         frame,
         fps,
         fimDasEntradas: FIM,
         segundos: SEGUNDOS,
+        sereno: true,
       })}
     </Cena>
   );

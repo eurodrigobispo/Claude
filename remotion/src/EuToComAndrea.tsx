@@ -34,13 +34,14 @@ export const EuToComAndrea: React.FC = () => {
   const {fps} = useVideoConfig();
   const t = frame / fps;
   return (
-    <Cena fundo={cena.fundo} t={t} segundos={SEGUNDOS} halo={0.14}>
+    <Cena fundo={cena.fundo} t={t} segundos={SEGUNDOS} halo={0.14} sereno>
       {montar('05', cena.camadas as Camada[], ROTEIRO, ORDEM, {
         t,
         frame,
         fps,
         fimDasEntradas: FIM,
         segundos: SEGUNDOS,
+        sereno: true,
       })}
     </Cena>
   );

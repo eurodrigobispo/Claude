@@ -87,6 +87,8 @@ export const Peca: React.FC<{
   passoReveal?: number;
   /** direção da revelação */
   revelaDaEsquerda?: boolean;
+  /** só balanço: sem acento, sem clarão, sem pulso na batida */
+  sereno?: boolean;
 }> = ({
   pasta,
   camada,
@@ -99,6 +101,7 @@ export const Peca: React.FC<{
   segundos,
   passoReveal = BATIDA / 8,
   revelaDaEsquerda = true,
+  sereno = false,
 }) => {
   const entrada = emBatidas(marca.batida);
   const local = t - entrada;
@@ -107,7 +110,14 @@ export const Peca: React.FC<{
     fps,
     config: {damping: 11, mass: 0.55, stiffness: 125},
   });
-  const a = acento(local - 0.45);
+  /**
+   * No modo sereno a peça entra e depois só balança: sem o acento de
+   * estica-e-encolhe ao assentar (que achata), sem o clarão que ele carrega
+   * (que pisca) e sem o respiro na batida (que pulsa). Sobra o deslocamento —
+   * que e o unico movimento que o usuario quis nessas telas.
+   */
+  const NEUTRO = {sx: 1, sy: 1, brilho: 1};
+  const a = sereno ? NEUTRO : acento(local - 0.45);
   const {tx, ty, escala, giro} = forma(marca.estilo, e, indice);
 
   const ehReveal = marca.estilo === 'reveal';
@@ -128,10 +138,13 @@ export const Peca: React.FC<{
     (Math.cos(t * 1.45 + marca.fase * 1.3) * 7 + Math.cos(t * 2.8 + marca.fase) * 2.5) * amp * assentou;
   const balancoGiro =
     (Math.sin(t * 1.6 + marca.fase * 0.7) * 2.4 + Math.sin(t * 3.0 + marca.fase * 1.9) * 1.0) * amp * assentou;
-  const respira = 1 + pulso(t + marca.fase * 0.09, MEIO_TEMPO) * 0.045 * amp * assentou;
+  const respira = sereno
+    ? 1
+    : 1 + pulso(t + marca.fase * 0.09, MEIO_TEMPO) * 0.045 * amp * assentou;
 
   const inicioOnda = fimDasEntradas + indice * (BATIDA / 2);
-  const r = t >= inicioOnda ? acento((t - inicioOnda) % (COMPASSO * 2)) : {sx: 1, sy: 1, brilho: 1};
+  const r =
+    sereno || t < inicioOnda ? NEUTRO : acento((t - inicioOnda) % (COMPASSO * 2));
 
   const giroContinuo = marca.giro ? interpolate(local, [0, segundos], [0, marca.giro]) : 0;
   const brilho = a.brilho * r.brilho;
@@ -163,7 +176,7 @@ export const Peca: React.FC<{
             const viva = suaviza((surge - 0.25) / 0.5);
             const ondaY = Math.sin(t * 2.3 + p.i * 0.9) * 5 * viva;
             const ondaGiro = Math.sin(t * 1.8 + p.i * 0.7) * 1.2 * viva;
-            const pulsa = 1 + pulso(t + p.i * 0.06, MEIO_TEMPO) * 0.035 * viva;
+            const pulsa = sereno ? 1 : 1 + pulso(t + p.i * 0.06, MEIO_TEMPO) * 0.035 * viva;
             const comum: React.CSSProperties = {
               position: 'absolute',
               left: p.dx,
@@ -213,13 +226,41 @@ export const Cena: React.FC<{
   t: number;
   segundos: number;
   halo?: number;
+  /** sem respiro no zoom e sem halo pulsando */
+  sereno?: boolean;
+  /**
+   * Fator de enquadramento. Abaixo de 1 comprime a arte para o centro e sobra
+   * mais borda dos lados — útil quando o card foi diagramado até quase a
+   * margem e o vídeo precisa ficar mais centralizado.
+   */
+  enquadramento?: number;
+  /**
+   * Ponto em torno do qual a compressão acontece. O padrão é o centro; quem
+   * tem peça sangrando no rodapé deve usar `50% 100%`, senão a compressão
+   * descola a peça da borda de baixo e abre uma faixa de fundo.
+   */
+  origem?: string;
   children: React.ReactNode;
-}> = ({fundo, t, segundos, halo = 0.3, children}) => {
-  const zoom = interpolate(t, [0, segundos], [1.015, 1.07]) + pulso(t, COMPASSO) * 0.009;
+}> = ({
+  fundo,
+  t,
+  segundos,
+  halo = 0.3,
+  sereno = false,
+  enquadramento = 1,
+  origem,
+  children,
+}) => {
+  const deriva = sereno ? 1.0 : 1.015;
+  const alcance = sereno ? 1.025 : 1.07;
+  const zoom =
+    (interpolate(t, [0, segundos], [deriva, alcance]) +
+      (sereno ? 0 : pulso(t, COMPASSO) * 0.009)) *
+    enquadramento;
   const camX = Math.sin(t * 0.4) * 24 + Math.sin(t * 1.05) * 5;
   const camY = Math.cos(t * 0.31) * 15;
   const camGiro = Math.sin(t * 0.26) * 0.5;
-  const brilhoHalo = halo + Math.max(0, pulso(t, COMPASSO)) * halo * 0.8;
+  const brilhoHalo = sereno ? halo : halo + Math.max(0, pulso(t, COMPASSO)) * halo * 0.8;
 
   return (
     <AbsoluteFill style={{backgroundColor: fundo, overflow: 'hidden'}}>
@@ -231,6 +272,7 @@ export const Cena: React.FC<{
       <AbsoluteFill
         style={{
           transform: `translate(${camX}px, ${camY}px) rotate(${camGiro}deg) scale(${zoom})`,
+          transformOrigin: origem,
           willChange: 'transform',
         }}
       >
@@ -246,7 +288,14 @@ export const montar = (
   camadas: Camada[],
   roteiro: Record<string, Marca>,
   ordem: string[],
-  ctx: {t: number; frame: number; fps: number; fimDasEntradas: number; segundos: number},
+  ctx: {
+    t: number;
+    frame: number;
+    fps: number;
+    fimDasEntradas: number;
+    segundos: number;
+    sereno?: boolean;
+  },
   extras?: Record<string, {passoReveal?: number; revelaDaEsquerda?: boolean}>,
 ) =>
   camadas
