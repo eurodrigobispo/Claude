@@ -9,7 +9,7 @@ import {
   useVideoConfig,
 } from 'remotion';
 import cena from '../public/12/cena.json';
-import {COMPASSO, CORES, MEIO_TEMPO, acento, emBatidas, pulso} from './ritmo';
+import {BATIDA, COMPASSO, CORES, MEIO_TEMPO, acento, emBatidas, pulso} from './ritmo';
 
 export const LARGURA = 1920;
 export const ALTURA = 1080;
@@ -33,6 +33,19 @@ const Y_BASE = -2 * ESPACO - 60;
 
 const ENTRADA_CARICATURA = emBatidas(4);
 
+/**
+ * Revelação de entrada: os algarismos surgem um a um, rápido — cinco por
+ * batida, ou seja um a cada 0,081 s. A primeira fileira revela da esquerda
+ * para a direita, a segunda no sentido inverso e a terceira repete a primeira,
+ * então a direção segue a paridade do índice. Cada fileira começa uma batida
+ * depois da anterior, e tudo está no lugar antes da caricatura entrar, no
+ * primeiro tempo do segundo compasso.
+ */
+const PASSO_DIGITO = BATIDA / 5;
+const REVELA_POR_FILEIRA = BATIDA;
+/** As fileiras 0 e 1 nascem acima da tela; revelam junto com a primeira visível. */
+const ordemDaFileira = (i: number) => Math.max(0, i - 2);
+
 const Fileira: React.FC<{i: number; t: number}> = ({i, t}) => {
   // desloca no ciclo de duas fileiras: a cor de cada índice nunca muda
   const desloc = (t * VELOCIDADE) % (2 * ESPACO);
@@ -50,6 +63,10 @@ const Fileira: React.FC<{i: number; t: number}> = ({i, t}) => {
   const respira = 1 + pulso(t + par * 0.16, COMPASSO) * 0.022;
   const desliza = Math.sin(t * 0.7 + par * Math.PI) * 14;
 
+  const inicio = ordemDaFileira(i) * REVELA_POR_FILEIRA;
+  const daEsquerda = i % 2 === 0;
+  const digs = cena.linha.digitos;
+
   return (
     <div
       style={{
@@ -58,17 +75,40 @@ const Fileira: React.FC<{i: number; t: number}> = ({i, t}) => {
         top: y,
         width: cena.linha.w,
         height: cena.linha.h,
-        backgroundColor: cor,
-        WebkitMaskImage: `url(${staticFile(cena.linha.arquivo)})`,
-        maskImage: `url(${staticFile(cena.linha.arquivo)})`,
-        WebkitMaskSize: '100% 100%',
-        maskSize: '100% 100%',
-        WebkitMaskRepeat: 'no-repeat',
-        maskRepeat: 'no-repeat',
         transform: `translateX(${desliza}px) scaleY(${respira})`,
         willChange: 'transform',
       }}
-    />
+    >
+      {digs.map((dg) => {
+        const ordem = daEsquerda ? dg.i : digs.length - 1 - dg.i;
+        const surge = t - (inicio + ordem * PASSO_DIGITO);
+        // aparição curta e seca: sobe um pouco, estica e assenta
+        const k = Math.min(1, Math.max(0, surge / 0.2));
+        const s = k * k * (3 - 2 * k);
+        return (
+          <div
+            key={dg.i}
+            style={{
+              position: 'absolute',
+              left: dg.dx,
+              top: 0,
+              width: dg.w,
+              height: cena.linha.h,
+              opacity: s,
+              transform: `translateY(${(1 - s) * 46}px) scale(${0.72 + s * 0.28})`,
+              backgroundColor: cor,
+              WebkitMaskImage: `url(${staticFile(dg.arquivo)})`,
+              maskImage: `url(${staticFile(dg.arquivo)})`,
+              WebkitMaskSize: '100% 100%',
+              maskSize: '100% 100%',
+              WebkitMaskRepeat: 'no-repeat',
+              maskRepeat: 'no-repeat',
+              willChange: 'transform',
+            }}
+          />
+        );
+      })}
+    </div>
   );
 };
 

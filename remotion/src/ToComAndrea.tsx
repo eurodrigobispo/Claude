@@ -18,10 +18,29 @@ export const SEGUNDOS = 15;
 export const DURACAO = Math.round(FPS * SEGUNDOS);
 const FUNDO = '#E4F1FB';
 
+/**
+ * Peça de um grupo. Neste card a caricatura vinha fundida com a estrela azul
+ * num PNG só, então a estrela não poderia girar sozinha. As duas foram
+ * retomadas separadas do card 01 e reencaixadas na escala deste card (1,158×);
+ * a estrela entra como máscara e é pintada no azul do card original.
+ */
+type Peca = {
+  id: string;
+  arquivo: string;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  mascara?: boolean;
+  cor?: string;
+  gira?: boolean;
+};
+
 type Camada = {
   z: number;
   id: string;
-  arquivo: string;
+  arquivo?: string;
+  grupo?: Peca[];
   x: number;
   y: number;
   w: number;
@@ -137,9 +156,9 @@ const Peca: React.FC<{c: Camada; t: number; frame: number; fps: number}> = ({
   const inicioOnda = FIM_DAS_ENTRADAS + i * (BATIDA / 2);
   const r = t >= inicioOnda ? acento((t - inicioOnda) % CICLO_ACENTO) : {sx: 1, sy: 1, brilho: 1};
 
-  // a caricatura vem com a estrela azul no mesmo PNG, então o conjunto gira
-  // devagar em vez de girar só a estrela
-  const giroLento = c.id === 'rosto' ? Math.sin(t * 0.5) * 3.5 * assentou : 0;
+  // a estrela azul gira sozinha atrás da caricatura: 1,5 volta nos 15 s,
+  // igual ao card 01
+  const giroEstrela = interpolate(local, [0, SEGUNDOS], [0, 540]);
 
   return (
     <div
@@ -151,13 +170,46 @@ const Peca: React.FC<{c: Camada; t: number; frame: number; fps: number}> = ({
         height: c.h,
         opacity: visivel * c.opacidade,
         transform: `translate(${tx + balancoX}px, ${ty + balancoY}px) rotate(${
-          giro + balancoGiro + giroLento
+          giro + balancoGiro
         }deg) scale(${escala * respira * a.sx * r.sx}, ${escala * respira * a.sy * r.sy})`,
         filter: a.brilho * r.brilho > 1.001 ? `brightness(${a.brilho * r.brilho})` : undefined,
         willChange: 'transform',
       }}
     >
-      <Img src={staticFile(`09/${c.arquivo}`)} style={{width: '100%', height: '100%'}} />
+      {c.grupo ? (
+        // O grupo inteiro entra e balança junto — só a estrela gira por dentro,
+        // então caricatura e selo nunca descolam dela.
+        c.grupo.map((p) => {
+          const comum: React.CSSProperties = {
+            position: 'absolute',
+            left: p.x - c.x,
+            top: p.y - c.y,
+            width: p.w,
+            height: p.h,
+            transform: p.gira ? `rotate(${giroEstrela}deg)` : undefined,
+            willChange: p.gira ? 'transform' : undefined,
+          };
+          return p.mascara ? (
+            <div
+              key={p.id}
+              style={{
+                ...comum,
+                backgroundColor: p.cor,
+                WebkitMaskImage: `url(${staticFile(`09/${p.arquivo}`)})`,
+                maskImage: `url(${staticFile(`09/${p.arquivo}`)})`,
+                WebkitMaskSize: '100% 100%',
+                maskSize: '100% 100%',
+                WebkitMaskRepeat: 'no-repeat',
+                maskRepeat: 'no-repeat',
+              }}
+            />
+          ) : (
+            <Img key={p.id} src={staticFile(`09/${p.arquivo}`)} style={comum} />
+          );
+        })
+      ) : (
+        <Img src={staticFile(`09/${c.arquivo}`)} style={{width: '100%', height: '100%'}} />
+      )}
     </div>
   );
 };

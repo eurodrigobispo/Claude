@@ -3,8 +3,40 @@
     "arquivo": "12/linha.png",
     "x": 77.0,
     "w": 1765.0,
-    "h": 388.0,
-    "espacamento": 434.0
+    "h": 388.5,
+    "espacamento": 434.0,
+    "digitos": [
+      {
+        "i": 0,
+        "arquivo": "12/l0.png",
+        "dx": 0.0,
+        "w": 335.5
+      },
+      {
+        "i": 1,
+        "arquivo": "12/l1.png",
+        "dx": 363.0,
+        "w": 335.5
+      },
+      {
+        "i": 2,
+        "arquivo": "12/l2.png",
+        "dx": 725.5,
+        "w": 342.5
+      },
+      {
+        "i": 3,
+        "arquivo": "12/l3.png",
+        "dx": 1075.5,
+        "w": 329.0
+      },
+      {
+        "i": 4,
+        "arquivo": "12/l4.png",
+        "dx": 1418.0,
+        "w": 347.0
+      }
+    ]
   },
   "estrela": {
     "arquivo": "12/estrela.png",

@@ -46,12 +46,40 @@
     {
       "z": 4,
       "id": "rosto",
-      "arquivo": "layers/04_1.png",
       "x": 646.55,
       "y": 119.53,
       "w": 666.0,
       "h": 666.0,
-      "opacidade": 1
+      "opacidade": 1,
+      "grupo": [
+        {
+          "id": "estrela",
+          "arquivo": "layers/estrela_mask.png",
+          "x": 738.0,
+          "y": 236.0,
+          "w": 489.0,
+          "h": 492.0,
+          "mascara": true,
+          "cor": "#00A8FF",
+          "gira": true
+        },
+        {
+          "id": "caricatura",
+          "arquivo": "layers/caricatura.png",
+          "x": 766.0,
+          "y": 273.0,
+          "w": 424.0,
+          "h": 467.0
+        },
+        {
+          "id": "selo",
+          "arquivo": "layers/selo_coracao.png",
+          "x": 677.0,
+          "y": 287.0,
+          "w": 109.0,
+          "h": 97.0
+        }
+      ]
     },
     {
       "z": 5,
