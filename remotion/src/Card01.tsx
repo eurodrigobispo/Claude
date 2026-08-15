@@ -9,6 +9,7 @@ import {
   useVideoConfig,
 } from 'remotion';
 import dados from '../public/01/layers.corrigido.json';
+import {MEIO_TEMPO} from './ritmo';
 
 export const LARGURA = 1920;
 export const ALTURA = 1080;
@@ -72,8 +73,13 @@ const ORDEM = [
 
 /** De quantos em quantos segundos a onda de acentos volta a percorrer a cena. */
 const CICLO_ACENTO = 1.8;
-/** Período da batida, em segundos (0,8s ≈ 75 bpm). */
-const BATIDA = 0.8;
+/**
+ * Pulsação: meio tempo da faixa (0,812 s). Esta composição foi feita antes de
+ * eu ter o MP3 e pulsava a 0,8 s, um valor chutado — a diferença era de 12 ms,
+ * mas ao longo de 15 s acumulava quase um quadro e meio de defasagem contra as
+ * outras telas. Agora as quatro dividem a mesma grade.
+ */
+const BATIDA = MEIO_TEMPO;
 
 /** Pulso da batida: sobe seco e desce macio. Serve de eixo rítmico pra cena toda. */
 const batida = (segundos: number, periodo = BATIDA) => {

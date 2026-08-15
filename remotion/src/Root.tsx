@@ -4,6 +4,10 @@ import {Card01, DURACAO, LARGURA, ALTURA, FPS} from './Card01';
 import {Numeros55670} from './Numeros55670';
 import {ToComAndrea} from './ToComAndrea';
 import {NumerosRolando} from './NumerosRolando';
+import {DeixaComEla} from './DeixaComEla';
+import {ForcaDaMulher} from './ForcaDaMulher';
+import {Assinatura55670} from './Assinatura55670';
+import {EuToFechadao} from './EuToFechadao';
 
 const palco = {
   durationInFrames: DURACAO,
@@ -19,6 +23,10 @@ export const RemotionRoot: React.FC = () => {
       <Composition id="Numeros55670" component={Numeros55670} {...palco} />
       <Composition id="ToComAndrea" component={ToComAndrea} {...palco} />
       <Composition id="NumerosRolando" component={NumerosRolando} {...palco} />
+      <Composition id="DeixaComEla" component={DeixaComEla} {...palco} />
+      <Composition id="ForcaDaMulher" component={ForcaDaMulher} {...palco} />
+      <Composition id="EuToFechadao" component={EuToFechadao} {...palco} />
+      <Composition id="Assinatura55670" component={Assinatura55670} {...palco} />
       <Composition
         id="MesaDeLuz"
         component={MesaDeLuz}
