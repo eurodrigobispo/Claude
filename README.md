@@ -54,3 +54,8 @@ Para rodar o teste de fluxo em Chromium:
 ```
 node test/smoke.mjs
 ```
+
+## Vídeo
+
+Há também um projeto Remotion em `remotion/`, separado da página — React, com
+build próprio. Instruções em `remotion/README.md`.
