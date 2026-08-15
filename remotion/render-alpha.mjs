@@ -20,6 +20,8 @@
  *   npm run alpha -- --cheio            em 1920×1080
  *   npm run alpha -- --segundos=3       amostra dos primeiros 3 s
  *   npm run alpha -- --so=eu,foto       só os elementos citados
+ *   npm run alpha -- --dividir=2        cada elemento em 2 clipes seguidos
+ *   npm run alpha -- --tudo-video       força vídeo até no que é imagem parada
  */
 import {spawnSync} from 'node:child_process';
 import {mkdirSync, readdirSync, statSync, writeFileSync} from 'node:fs';
@@ -110,8 +112,27 @@ const COMUNS = [
   '--concurrency=4',
 ];
 const recorteFrames = segundos > 0 ? [`--frames=0-${Math.round(segundos * 30) - 1}`] : [];
+/**
+ * Divide cada elemento em N clipes seguidos. Serve quando o destino tem limite
+ * de tamanho por arquivo — o editor põe as partes em sequência na mesma
+ * camada, com a mesma Position, e o resultado é idêntico ao arquivo inteiro.
+ */
+const partes = Math.max(1, Number(opt('dividir', '1')));
+const TOTAL_FRAMES = 450;
+const fatias =
+  partes === 1
+    ? [{sufixo: '', frames: recorteFrames}]
+    : Array.from({length: partes}, (_, k) => {
+        const ini = Math.round((k * TOTAL_FRAMES) / partes);
+        const fim = Math.round(((k + 1) * TOTAL_FRAMES) / partes) - 1;
+        return {
+          sufixo: `_parte${String.fromCharCode(65 + k)}`,
+          frames: [`--frames=${ini}-${fim}`],
+          inicio: ini / 30,
+        };
+      });
 
-const renderizar = (arquivo, props) =>
+const renderizar = (arquivo, props, frames = recorteFrames) =>
   spawnSync(
     process.platform === 'win32' ? 'npx.cmd' : 'npx',
     [
@@ -120,7 +141,7 @@ const renderizar = (arquivo, props) =>
       tela,
       arquivo,
       ...COMUNS,
-      ...recorteFrames,
+      ...frames,
       `--props=${JSON.stringify(props)}`,
     ],
     {stdio: 'inherit'},
@@ -199,9 +220,13 @@ elementos.forEach((el, i) => {
     return;
   }
 
-  const nome = `${String(i + 1).padStart(2, '0')}_${el.id}.mov`;
-  if (!renderizar(join(destino, nome), {transparente: true, somente: el.id, recorte: caixa})) {
-    falhas.push(el.id);
+  for (const fatia of fatias) {
+    const nome = `${String(i + 1).padStart(2, '0')}_${el.id}${fatia.sufixo}.mov`;
+    if (
+      !renderizar(join(destino, nome), {transparente: true, somente: el.id, recorte: caixa}, fatia.frames)
+    ) {
+      falhas.push(el.id + fatia.sufixo);
+    }
   }
 });
 
@@ -235,6 +260,15 @@ if (!cheio) {
     );
   });
   linhas.push(``, `O anchor point de cada camada fica no centro dela, que é o padrão do AE.`);
+  if (partes > 1) {
+    linhas.push(
+      ``,
+      `ARQUIVOS DIVIDIDOS`,
+      `Cada elemento saiu em ${partes} clipes (_parteA, _parteB...). Ponha um`,
+      `depois do outro na mesma camada, com a mesma Position. Os cortes caem em:`,
+      fatias.map((f) => `  ${f.sufixo.replace('_', '')}: ${f.inicio.toFixed(2)}s`).join('\n'),
+    );
+  }
   if (estaticos.length) {
     linhas.push(
       ``,
