@@ -1,8 +1,18 @@
 import {Composition} from 'remotion';
 import {MesaDeLuz} from './MesaDeLuz';
+import {Card01, DURACAO, LARGURA, ALTURA, FPS} from './Card01';
 
 export const RemotionRoot: React.FC = () => {
   return (
+    <>
+    <Composition
+      id="Card01"
+      component={Card01}
+      durationInFrames={DURACAO}
+      fps={FPS}
+      width={LARGURA}
+      height={ALTURA}
+    />
     <Composition
       id="MesaDeLuz"
       component={MesaDeLuz}
@@ -15,5 +25,6 @@ export const RemotionRoot: React.FC = () => {
         legenda: 'referência vira prompt',
       }}
     />
+    </>
   );
 };

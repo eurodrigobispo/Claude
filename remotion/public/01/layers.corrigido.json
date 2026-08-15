@@ -1,0 +1,97 @@
+{
+  "nome": "01",
+  "largura": 1920,
+  "altura": 1080,
+  "camadas": [
+    {
+      "z": 0,
+      "id": "badge",
+      "arquivo": "layers/00_Frame-2147235532.png",
+      "x": 1535.89,
+      "y": 519.54,
+      "w": 98.0,
+      "h": 95.5,
+      "opacidade": 1
+    },
+    {
+      "z": 1,
+      "id": "ela",
+      "arquivo": "layers/01_3.png",
+      "x": 1210.11,
+      "y": 515.64,
+      "w": 326.0,
+      "h": 189.0,
+      "opacidade": 1
+    },
+    {
+      "z": 2,
+      "id": "com",
+      "arquivo": "layers/02_2.png",
+      "x": 1079.36,
+      "y": 515.71,
+      "w": 131.0,
+      "h": 98.5,
+      "opacidade": 1
+    },
+    {
+      "z": 3,
+      "id": "to",
+      "arquivo": "layers/03_2.png",
+      "x": 420.17,
+      "y": 584.53,
+      "w": 186.5,
+      "h": 125.0,
+      "opacidade": 1
+    },
+    {
+      "z": 4,
+      "id": "fechadao",
+      "arquivo": "layers/04_1.png",
+      "x": 1041.85,
+      "y": 348.12,
+      "w": 523.0,
+      "h": 171.5,
+      "opacidade": 1
+    },
+    {
+      "z": 5,
+      "id": "eu",
+      "arquivo": "layers/05_eu.png",
+      "x": 326.35,
+      "y": 330.64,
+      "w": 261.5,
+      "h": 197.0,
+      "opacidade": 1
+    },
+    {
+      "z": 6,
+      "id": "coracao",
+      "arquivo": "layers/06_Frame-2147235516.png",
+      "x": 319.47,
+      "y": 647.02,
+      "w": 101.0,
+      "h": 115.5,
+      "opacidade": 1
+    },
+    {
+      "z": 7,
+      "id": "estrela",
+      "arquivo": "layers/07_Vector.png",
+      "x": 632.42,
+      "y": 327.5,
+      "w": 422.0,
+      "h": 425.0,
+      "opacidade": 1
+    },
+    {
+      "z": 8,
+      "id": "caricatura",
+      "arquivo": "layers/08_image-212.png",
+      "x": 655.94,
+      "y": 359.64,
+      "w": 366.5,
+      "h": 403.0,
+      "opacidade": 1
+    }
+  ]
+}
