@@ -148,3 +148,39 @@ dele sozinho na primeira exportação. A variável `REMOTION_BROWSER` em
    `@remotion/transitions`. Ver `remotion/DECISOES.md`.
 
 Registro detalhado das decisões: **`remotion/DECISOES.md`**.
+
+---
+
+# Exportação em alfa para o After Effects
+
+`npm run alpha` gera, por tela: a chapa de fundo em PNG, uma referência em
+H.264 e cada elemento em **ProRes 4444** (`.mov`) — o único codec com canal
+alfa que o After Effects lê nativamente. Confirmado no arquivo gerado: o
+container reporta `ap4h`.
+
+Cada elemento sai **recortado na sua caixa útil**, medida percorrendo o clipe
+inteiro (a união de todas as posições que a peça ocupa, mais 16 px). A caixa
+de um quadro só cortaria nas pontas, porque o balanço mexe as peças. O
+`posicoes.txt` que acompanha diz onde recolocar cada recorte. Remontando tudo
+sobre a chapa de fundo, bate com o render original com RMSE de 0,08.
+
+**O peso é inescapável.** Uma tela de 15 s dá ~750 MB, e dois elementos
+respondem por 74% disso: a foto (402 MB) e o coração 3D (154 MB). O que foi
+testado e não resolve:
+
+- **Recortar a caixa útil** economiza só 15%, não os 88% que a conta de pixels
+  sugere — o ProRes já comprime área transparente com eficiência. O peso está
+  no conteúdo, não na tela vazia.
+- **VP9/WebM com alfa** sai 67× menor, mas o alfa **não sobrevive**: testado
+  compondo o arquivo sobre vermelho, voltou 49% de preto onde deveria estar
+  transparente. Descartado.
+- **Sequência PNG** dá o mesmo peso do ProRes.
+
+O que valeu: a referência saiu de ProRes para H.264 (90 MB → 12 MB) e o fundo
+virou PNG parado (o halo não pulsa no modo sereno).
+
+Entrega de um pacote desses é por transferência de arquivo, não por chat.
+
+Só a tela `EuToFechadao` tem as caixas medidas em `render-alpha.mjs`. Para as
+outras, medir do mesmo jeito: renderizar cada elemento isolado com
+`--scale=0.2` e pegar a união das caixas de alfa ao longo do clipe.
