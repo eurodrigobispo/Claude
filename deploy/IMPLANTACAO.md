@@ -44,8 +44,7 @@ No servidor:
 
 ```
 sudo apt-get install -y unzip
-sudo mkdir -p /opt/painel-eleitoral
-sudo unzip ~/painel-eleitoral-2026.zip -d /opt/painel-eleitoral
+sudo unzip -o ~/painel-eleitoral-2026.zip -d /opt/painel-eleitoral
 sudo chown -R $USER /opt/painel-eleitoral
 cd /opt/painel-eleitoral
 ```
@@ -103,7 +102,7 @@ O primeiro certificado HTTPS leva até um minuto. Se o domínio ainda não apont
 | Ver se está tudo de pé | `docker compose -f deploy/docker-compose.yml ps` |
 | Reiniciar | `docker compose -f deploy/docker-compose.yml --env-file deploy/.env restart painel` |
 | Parar | `docker compose -f deploy/docker-compose.yml --env-file deploy/.env down` |
-| Atualizar para um pacote novo | descompacte por cima e rode o passo 6 de novo |
+| Atualizar para um pacote novo | `sudo unzip -o novo.zip -d /opt/painel-eleitoral` e rode o passo 6 de novo (o `deploy/.env` e o histórico são mantidos) |
 | Guardar o histórico da noite | `docker compose -f deploy/docker-compose.yml cp painel:/app/feed ./feed-backup` |
 
 O contêiner reinicia sozinho se cair ou se o servidor reiniciar. O Docker também confere `/api/saude` a cada 30 s: se o coletor ficar 2 minutos sem gravar o placar, o contêiner é marcado como doente.
