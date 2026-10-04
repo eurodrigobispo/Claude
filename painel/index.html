@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Painel Eleitoral 2026</title>
+<meta name="description" content="Painel analítico da apuração de 2026: votação de cada candidato por município, zona e local de votação, em tempo real, com comparação a 2022.">
+<meta name="color-scheme" content="dark">
+<meta name="theme-color" content="#0F0E0D">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 32 32%22%3E%3Crect width=%2232%22 height=%2232%22 rx=%227%22 fill=%22%230F0E0D%22/%3E%3Cpath d=%22M8 22V14M14 22V9M20 22v-6M26 22V11%22 stroke=%22%23FAFAF9%22 stroke-width=%223%22 stroke-linecap=%22round%22/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Faustina:wght@300;400&family=Geist:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="estilo.css">
+</head>
+<body>
+
+<div class="hud" id="hud">
+  <svg id="mapaSvg" role="img" aria-label="Mapa da votação">
+    <g id="gArea"></g>
+    <g id="gCelulas"></g>
+    <g id="gLocais"></g>
+    <g id="gZonas"></g>
+    <g id="gRotulos"></g>
+  </svg>
+  <p class="mapa-vazio" id="mapaVazio" hidden></p>
+  <div class="tip" id="tip" hidden></div>
+
+  <header class="topo">
+    <div class="marca"><b>Painel Eleitoral 2026</b><span>análise da apuração</span></div>
+    <nav class="switch" id="cargos" role="group" aria-label="Cargo"></nav>
+    <div class="busca">
+      <label class="busca-campo">
+        <svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="7" cy="7" r="4.5"/><path d="M10.5 10.5L14 14"/></svg>
+        <input id="busca" type="search" placeholder="Buscar candidato" autocomplete="off" aria-label="Buscar candidato" aria-controls="buscaRes">
+        <kbd>/</kbd>
+      </label>
+      <select class="seletor" id="buscaCargo" aria-label="Cargo na busca">
+        <option value="">Cargo</option>
+        <option value="1">Presidente</option>
+        <option value="3">Governador</option>
+        <option value="5">Senador</option>
+        <option value="6">Dep. Federal</option>
+        <option value="7">Dep. Estadual</option>
+      </select>
+      <select class="seletor" id="buscaUf" aria-label="Estado na busca">
+        <option value="">Estado</option>
+        <option value="br">Só nacional</option>
+        <option value="ac">AC</option><option value="al">AL</option><option value="ap">AP</option><option value="am">AM</option>
+        <option value="ba">BA</option><option value="ce">CE</option><option value="df">DF</option><option value="es">ES</option>
+        <option value="go">GO</option><option value="ma">MA</option><option value="mt">MT</option><option value="ms">MS</option>
+        <option value="mg">MG</option><option value="pa">PA</option><option value="pb">PB</option><option value="pr">PR</option>
+        <option value="pe">PE</option><option value="pi">PI</option><option value="rj">RJ</option><option value="rn">RN</option>
+        <option value="rs">RS</option><option value="ro">RO</option><option value="rr">RR</option><option value="sc">SC</option>
+        <option value="sp">SP</option><option value="se">SE</option><option value="to">TO</option>
+      </select>
+      <ul class="busca-res" id="buscaRes" role="listbox" hidden></ul>
+    </div>
+    <div class="status">
+      <span class="live" id="live" data-st="carregando"><i></i><span class="lw">Atualizado às </span><span id="liveTxt">conectando…</span></span>
+    </div>
+  </header>
+
+  <aside class="col l" aria-label="Disputa e recorte">
+    <section class="card hero" id="hero"></section>
+    <section class="card grow lista-card" aria-label="Recorte e candidatos">
+      <div class="filtros">
+        <label><span>Estado</span><select class="seletor" id="uf"></select></label>
+        <label><span>Cidade</span><input class="campo" id="cidade" list="listaCidades" autocomplete="off" placeholder="Todas as cidades"></label>
+        <label><span>Zona</span><select class="seletor" id="zona"></select></label>
+      </div>
+      <datalist id="listaCidades"></datalist>
+      <div class="sec">
+        <div class="andamento"><span class="lab">Seções totalizadas</span><b id="andamentoPct">—</b></div>
+        <div class="prog"><i id="andamentoBarra"></i></div>
+        <div class="micro" id="andamentoTxt"></div>
+      </div>
+      <div class="sec hd" style="margin-bottom:8px"><h3>Candidatos</h3><span class="aside" id="candRecorte"></span></div>
+      <input class="campo" id="candFiltro" type="search" placeholder="Filtrar por nome, número ou partido" autocomplete="off" aria-label="Filtrar candidatos">
+      <ul class="lista" id="candLista"></ul>
+    </section>
+  </aside>
+
+  <section class="centro" aria-label="Mapa e tabela">
+    <div class="maptop">
+      <nav class="crumbs" id="trilha" aria-label="Recorte atual"></nav>
+      <div class="seg2 switch" id="modoMapa" role="group" aria-label="O mapa mostra">
+        <button type="button" data-modo="lider">Líder</button>
+        <button type="button" data-modo="candidato">Candidato</button>
+      </div>
+      <button type="button" class="btn" id="btnBrasilMun" hidden>Abrir os 5.570 municípios</button>
+      <div class="legenda" id="legenda"></div>
+    </div>
+    <div class="zoomctl">
+      <button type="button" id="btnMais" aria-label="Aproximar"><svg viewBox="0 0 14 14"><path d="M7 2v10M2 7h10"/></svg></button>
+      <button type="button" id="btnMenos" aria-label="Afastar"><svg viewBox="0 0 14 14"><path d="M2 7h10"/></svg></button>
+      <button type="button" id="btnEnquadrar" aria-label="Enquadrar o recorte"><svg viewBox="0 0 14 14"><path d="M2 5V2h3M9 2h3v3M12 9v3H9M5 12H2V9"/></svg></button>
+    </div>
+    <div class="carga" id="carga" hidden><span id="cargaTxt"></span><div class="prog"><i id="cargaBarra"></i></div></div>
+    <div class="carga" id="cargaCidade" hidden><span></span><div class="prog"><i></i></div></div>
+
+    <section class="card gaveta" aria-label="Tabela">
+      <div class="gaveta-cab">
+        <div class="seg2 switch" id="tabAbas" role="group" aria-label="Tabela"></div>
+        <span class="nota" id="tabNota"></span>
+        <input class="campo" id="tabFiltro" type="search" placeholder="Filtrar tabela" autocomplete="off" aria-label="Filtrar tabela">
+        <button type="button" class="icone alternar" id="btnGaveta" aria-label="Recolher tabela" aria-expanded="true"><svg viewBox="0 0 14 14"><path d="M3 5l4 4 4-4"/></svg></button>
+      </div>
+      <div class="gaveta-corpo">
+        <table id="tab"></table>
+        <p class="vazio" id="tabVazio" hidden></p>
+      </div>
+    </section>
+  </section>
+
+  <aside class="col r" aria-label="Análise">
+    <section class="card grow dossie" id="dossie"></section>
+  </aside>
+</div>
+
+<script type="module" src="js/app.js"></script>
+</body>
+</html>

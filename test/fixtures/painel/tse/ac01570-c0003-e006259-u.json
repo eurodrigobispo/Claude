@@ -1,0 +1,32 @@
+
+{ "ele" : "6259", "t" : "1", "f" : "o", "sup" : "n", "tpabr" : "mu", "cdabr" : "01570", "dg" : "04/10/2026", "hg" : "19:00:38", "idg" : "1549156", "dt" : "04/10/2026", "ht" : "16:59:26", "dv" : "s", "tf" : "n", "and" : "p", "md" : "n", "carg" : [ 
+{ "cd" : "3", "nmn" : "Governador", "nmm" : "Governador", "nmf" : "Governadora", "nv" : "1", "fed" : [ 
+{ "n" : "100", "sg" : "PSDB/CIDADANIA", "nm" : "FEDERAÇÃO PSDB CIDADANIA", "com" : "PSDB/CIDADANIA", "npar" : [ "23", "45" ] }, 
+{ "n" : "104", "sg" : "UNIÃO/PP", "nm" : "FEDERAÇÃO UNIÃO PROGRESSISTA", "com" : "UNIÃO/PP", "npar" : [ "11", "44" ] } ], "agr" : [ 
+{ "n" : "10001800654", "nm" : "AVANÇA ACRE", "tp" : "c", "com" : "PDT / MDB / PL / DEMOCRATA / PP / UNIÃO", "tvtn" : "2566", "tvan" : "2566", "par" : [ 
+{ "n" : "11", "sg" : "PP", "nm" : "PROGRESSISTAS", "nfed" : "104", "tvtn" : "2566", "tvan" : "2566", "cand" : [ 
+{ "n" : "11", "sqcand" : "10002544107", "nm" : "MAILZA ASSIS CAMELI", "nmu" : "MAILZA ASSIS", "dt" : "10/12/1976", "dvt" : "Válido", "seq" : "1", "e" : "n", "st" : "", "vap" : "2566", "pvap" : "55,88", "pvapn" : "55,879790941", "vs" : [ 
+{ "tp" : "v", "sqcand" : "10002544108", "nm" : "JESSICA ROJAS SALES", "nmu" : "JESSICA SALES", "sgp" : "MDB" } ] } ] } ] }, 
+{ "n" : "10001801047", "nm" : "PARTIDO COMUNISTA BRASILEIRO", "tp" : "i", "com" : "PCB", "vag" : "0", "par" : [ 
+{ "n" : "21", "sg" : "PCB", "nm" : "PARTIDO COMUNISTA BRASILEIRO", "nfed" : "", "tvtn" : "3", "tvan" : "3", "cand" : [ 
+{ "n" : "21", "sqcand" : "10002549500", "nm" : "EUDO RAFFAEL LIMA DA SILVA", "nmu" : "EUDO RAFFAEL", "dt" : "27/08/1985", "dvt" : "Válido", "seq" : "5", "e" : "n", "st" : "", "vap" : "3", "pvap" : "0,07", "pvapn" : "0,065331010", "vs" : [ 
+{ "tp" : "v", "sqcand" : "10002549501", "nm" : "CESAR AUGUSTO FELIX DA SILVA", "nmu" : "POETA CESINHA", "sgp" : "PCB" } ] } ] } ] }, 
+{ "n" : "10001800168", "nm" : "AGIR", "tp" : "i", "com" : "AGIR", "vag" : "0", "par" : [ 
+{ "n" : "36", "sg" : "AGIR", "nm" : "AGIR", "nfed" : "", "tvtn" : "0", "tvan" : "0", "cand" : [ 
+{ "n" : "36", "sqcand" : "10002533539", "nm" : "FRANCISCO DAS CHAGAS CONCEICAO DA SILVA", "nmu" : "DR.LUISINHO", "dt" : "16/01/1975", "dvt" : "Válido", "seq" : "6", "e" : "n", "st" : "", "vap" : "0", "pvap" : "0,00", "pvapn" : "0", "vs" : [ 
+{ "tp" : "v", "sqcand" : "10002533538", "nm" : "DANIELA PAIVA DE OLIVEIRA", "nmu" : "DANIELA PAIVA", "sgp" : "AGIR" } ] } ] } ] }, 
+{ "n" : "10001800116", "nm" : "TRABALHO DA ESPERANÇA", "tp" : "c", "com" : "REPUBLICANOS / NOVO / PSD / AVANTE", "tvtn" : "1242", "tvan" : "1242", "par" : [ 
+{ "n" : "10", "sg" : "REPUBLICANOS", "nm" : "REPUBLICANOS", "nfed" : "", "tvtn" : "1242", "tvan" : "1242", "cand" : [ 
+{ "n" : "10", "sqcand" : "10002532492", "nm" : "ALAN RICK MIRANDA", "nmu" : "ALAN RICK", "dt" : "23/10/1976", "dvt" : "Válido", "seq" : "2", "e" : "n", "st" : "", "vap" : "1242", "pvap" : "27,05", "pvapn" : "27,047038328", "vs" : [ 
+{ "tp" : "v", "sqcand" : "10002532493", "nm" : "FABIO RICARDO LEITE", "nmu" : "RICARDO LEITE", "sgp" : "REPUBLICANOS" } ] } ] } ] }, 
+{ "n" : "10001801129", "nm" : "FRENTE AMPLA PELO ACRE", "tp" : "c", "com" : "PODE / PSB / PCDOB / PT / PV", "tvtn" : "599", "tvan" : "599", "par" : [ 
+{ "n" : "40", "sg" : "PSB", "nm" : "PARTIDO SOCIALISTA BRASILEIRO", "nfed" : "", "tvtn" : "599", "tvan" : "599", "cand" : [ 
+{ "n" : "40", "sqcand" : "10002550719", "nm" : "THOR OLIVEIRA DANTAS", "nmu" : "THOR DANTAS", "dt" : "29/10/1973", "dvt" : "Válido", "seq" : "4", "e" : "n", "st" : "", "vap" : "599", "pvap" : "13,04", "pvapn" : "13,044425087", "vs" : [ 
+{ "tp" : "v", "sqcand" : "10002550720", "nm" : "MARIA DO PERPETUO SOCORRO RODRIGUES DE SOUZA", "nmu" : "SOCORRO RODRIGUES", "sgp" : "PODE" } ] } ] } ] }, 
+{ "n" : "10001800730", "nm" : "PRODUZIR PARA EMPREGAR", "tp" : "c", "com" : "PRD / SOLIDARIEDADE / CIDADANIA / PSDB", "tvtn" : "182", "tvan" : "182", "par" : [ 
+{ "n" : "45", "sg" : "PSDB", "nm" : "PARTIDO DA SOCIAL DEMOCRACIA BRASILEIRA", "nfed" : "100", "tvtn" : "182", "tvan" : "182", "cand" : [ 
+{ "n" : "45", "sqcand" : "10002544015", "nm" : "SEBASTIAO BOCALOM RODRIGUES", "nmu" : "TIÃO BOCALOM", "dt" : "18/05/1953", "dvt" : "Válido", "seq" : "3", "e" : "n", "st" : "", "vap" : "182", "pvap" : "3,96", "pvapn" : "3,963414634", "vs" : [ 
+{ "tp" : "v", "sqcand" : "10002544016", "nm" : "ADONIS FRANCISCO DE ALMEIDA SOUZA", "nmu" : "SARGENTO ADONIS", "sgp" : "PSDB" } ] } ] } ] } ] } ], "s" : 
+{ "ts" : "28", "st" : "26", "pst" : "92,86", "pstn" : "92,857142857", "snt" : "2", "psnt" : "7,14", "psntn" : "7,142857143", "si" : "26", "psi" : "100,00", "psin" : "100", "sni" : "0", "psni" : "0,00", "psnin" : "0", "sa" : "26", "psa" : "100,00", "psan" : "100", "sna" : "0", "psna" : "0,00", "psnan" : "0" }, "e" : 
+{ "te" : "7294", "est" : "6616", "pest" : "90,70", "pestn" : "90,704688785", "esnt" : "678", "pesnt" : "9,30", "pesntn" : "9,295311215", "esi" : "6616", "pesi" : "100,00", "pesin" : "100", "esni" : "0", "pesni" : "0,00", "pesnin" : "0", "esa" : "6616", "pesa" : "100,00", "pesan" : "100", "esna" : "0", "pesna" : "0,00", "pesnan" : "0", "c" : "5207", "pc" : "78,70", "pcn" : "78,703143894", "a" : "1409", "pa" : "21,30", "pan" : "21,296856106" }, "v" : 
+{ "tv" : "5207", "vvc" : "4592", "pvvc" : "88,19", "pvvcn" : "88,188976378", "vv" : "4592", "pvv" : "100,00", "pvvn" : "100", "vnom" : "4592", "pvnom" : "100,00", "pvnomn" : "100", "van" : "0", "pvan" : "0,00", "pvann" : "0", "vansj" : "0", "pvansj" : "0,00", "pvansjn" : "0", "vb" : "39", "pvb" : "0,75", "pvbn" : "0,748991742", "tvn" : "576", "ptvn" : "11,06", "ptvnn" : "11,062031880", "vn" : "576", "pvn" : "100,00", "pvnn" : "100", "vnt" : "0", "pvnt" : "0,00", "pvntn" : "0", "vsan" : "0", "vscv" : "0" } }

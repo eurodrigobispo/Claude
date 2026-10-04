@@ -102,3 +102,60 @@ do TSE, então roda sem rede:
 ```
 node test/apuracao.mjs
 ```
+
+---
+
+# Painel Eleitoral 2026
+
+Painel analítico da apuração, pensado para desktop, em `painel/`. Para cada
+candidato mostra:
+- a votação em todos os municípios no mapa;
+- o detalhe da cidade clicada, por zona e por local de votação, lido dos
+  boletins de urna publicados pelo TSE;
+- uma leitura estratégica com comparação a 2022.
+
+Abra `painel/index.html` por um servidor (GitHub Pages, por exemplo; módulos ES
+não carregam de `file://`). O painel fica em
+`https://<usuário>.github.io/<repositório>/painel/`.
+
+## O que tem
+
+- **Busca** por nome ou número entre os 18.853 candidatos, com filtro de cargo
+  e estado. **Recorte** por estado, cidade e zona.
+- **Mapa** pintado pelo líder (tom pela margem) ou pelo percentual de um
+  candidato. Na visão Brasil, por estado, com opção de abrir os 5.570
+  municípios.
+- **Cidade**: zonas e locais de votação somados dos boletins de urna, com a
+  área aproximada de cada local no mapa e a comparação com 2022 por zona.
+- **Leitura estratégica**:
+  - concentração do voto, perfil por porte de município e redutos;
+  - onde o candidato perde terreno e onde há voto a conquistar;
+  - variação contra 2022, pelo mesmo número ou pelo mesmo partido.
+- **Tabelas** ordenáveis de municípios, zonas e locais.
+
+## Dados
+
+- Resultado ao vivo: lido direto de `resultados.tse.jus.br` pelo navegador. O
+  TSE libera CORS.
+- Malhas: IBGE.
+- Locais de votação de 2026 e votação de 2022 por município e zona:
+  pré-processados em `painel/dados/` por `scripts/etl_tse.py`, a partir do
+  portal de dados abertos do TSE.
+
+```
+python3 scripts/etl_tse.py locais
+python3 scripts/etl_tse.py historico
+```
+
+`painel/ARQUITETURA.md` descreve as fontes, os limites do modo navegador e o
+que é preciso no servidor para levar zonas e locais a todas as cidades em
+tempo real.
+
+## Teste
+
+```
+node test/painel.mjs
+```
+
+Sobe um servidor local e serve recortes reais do TSE e do IBGE a partir de
+`test/fixtures/painel`, inclusive quatro boletins de urna de Porto Walter (AC).
