@@ -258,6 +258,7 @@ button { cursor: pointer; }
 .busca .seletor { max-width: 140px; flex: none; }
 .busca-campo {
   flex: 1;
+  min-width: 0;
   display: flex;
   align-items: center;
   gap: 8px;
