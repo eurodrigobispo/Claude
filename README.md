@@ -107,6 +107,9 @@ node test/apuracao.mjs
 
 # Painel Eleitoral 2026
 
+> **Para subir num servidor:** siga `deploy/IMPLANTACAO.md`. Com Docker é um
+> comando só: `docker compose -f deploy/docker-compose.yml --env-file deploy/.env up -d --build`.
+
 Painel analítico da apuração, pensado para desktop, em `painel/`. Para cada
 candidato mostra:
 - a votação em todos os municípios no mapa;
@@ -120,11 +123,23 @@ não carregam de `file://`). O painel fica em
 
 ## O que tem
 
-- **Busca** por nome ou número entre os 18.853 candidatos, com filtro de cargo
-  e estado. **Recorte** por estado, cidade e zona.
-- **Mapa** pintado pelo líder (tom pela margem) ou pelo percentual de um
-  candidato. Na visão Brasil, por estado, com opção de abrir os 5.570
-  municípios.
+- **Busca** por nome ou número entre os 18.853 candidatos, e por município,
+  com filtro de cargo e estado. **Recorte** por estado, cidade e zona. Botão de
+  compartilhar o recorte.
+- **Mapa** em quatro modos, como na referência:
+  - Líder, com o tom pela margem;
+  - Candidato, pelo percentual dele;
+  - Vantagem, com picos proporcionais aos votos de vantagem;
+  - Apurado, pelas seções totalizadas.
+
+  Na visão Brasil o mapa é por estado, com opção de abrir os 5.570 municípios.
+- **Governador e Senado no Brasil**: mapa das disputas estaduais (tom forte
+  quando já decidida), faixa com os 27 estados, eleitos, 2º turno e disputas
+  mais apertadas.
+- **Por região**: quem lidera em cada região e a variação contra 2022.
+- **Turno automático**: o painel e o coletor leem o índice de eleições do TSE
+  e passam para o 2º turno sozinhos. Para forçar, use `?turno=2` no painel e
+  `--turno 2` no coletor.
 - **Cidade**: zonas e locais de votação somados dos boletins de urna, com a
   área aproximada de cada local no mapa e a comparação com 2022 por zona.
 - **Leitura estratégica**:

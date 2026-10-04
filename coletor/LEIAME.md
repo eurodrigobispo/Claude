@@ -35,10 +35,11 @@ node coletor/coletor.mjs --saida /var/www/feed
 | `--zonas` | `capitais` | Cidades com zonas lidas dos boletins: `capitais`, `nenhuma` ou lista `sp:71072,rj:60011` |
 | `--zonas-cargos` | `1,3,5` | Cargos somados nas zonas (`6,7` acrescenta deputados e multiplica a memória) |
 | `--paralelo` | `12` | Pedidos simultâneos ao TSE |
+| `--turno` | automático | Força `1` ou `2`; sem ela, o coletor segue o índice de eleições do TSE e troca sozinho quando o 2º turno for publicado |
 | `--uma-vez` | | Faz um ciclo e sai |
 
 Ao reiniciar na mesma pasta, o coletor retoma o histórico e os eventos já
-gravados.
+gravados, desde que sejam do mesmo turno.
 
 ## Painel em outro endereço
 
@@ -61,8 +62,11 @@ o TSE direto, como antes.
 | `eventos.json` | a cada ciclo | Últimas 120 atualizações: `secoes`, `eleito`, `segundo-turno`, `virada`, `concluida` |
 | `uf/<uf>-c<cargo>.json` | quando um município muda | Todos os municípios da UF, em colunas alinhadas por `mun` |
 | `zonas/<uf>-<mun>.json` | a cada lote de 1.500 boletins | Zonas e locais de votação de cada cargo, somados dos boletins de urna |
-| `arquivo/<HHMM>.json` | a cada minuto | Retrato do `agora.json`, com índice em `arquivo/indice.json` |
+| `arquivo/t<turno>/<HHMM>.json` | a cada minuto | Retrato do `agora.json`, com índice em `arquivo/t<turno>/indice.json` |
 | `estado.json` | a cada ciclo | Saúde: ciclos, pedidos, falhas, último erro, progresso das zonas |
+
+O servidor também responde `GET /api/saude`: 200 se o coletor gravou o placar
+nos últimos 2 minutos, 503 se não. Serve para o Docker ou um monitor externo.
 
 ## Como ele conta
 

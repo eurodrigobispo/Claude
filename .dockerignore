@@ -1,0 +1,6 @@
+.git
+test
+scripts
+feed
+deploy/.env
+*.zip

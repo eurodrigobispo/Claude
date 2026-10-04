@@ -18,6 +18,7 @@
 <div class="hud" id="hud">
   <svg id="mapaSvg" role="img" aria-label="Mapa da votação">
     <g id="gArea"></g>
+    <g id="gPicos"></g>
     <g id="gCelulas"></g>
     <g id="gLocais"></g>
     <g id="gZonas"></g>
@@ -25,6 +26,7 @@
   </svg>
   <p class="mapa-vazio" id="mapaVazio" hidden></p>
   <div class="tip" id="tip" hidden></div>
+  <div class="aviso" id="aviso" role="status" hidden></div>
 
   <header class="topo">
     <div class="marca"><b>Painel Eleitoral 2026</b><span>análise da apuração</span></div>
@@ -58,6 +60,7 @@
     </div>
     <div class="status">
       <span class="vivos" id="vivos" hidden title="Pessoas com o painel aberto agora"><svg viewBox="0 0 14 14" aria-hidden="true"><path d="M1 7s2.2-4 6-4 6 4 6 4-2.2 4-6 4-6-4-6-4z"/><circle cx="7" cy="7" r="1.8"/></svg><b id="vivosN"></b><span class="rot" id="vivosRot">pessoas agora</span></span>
+      <button type="button" class="icone" id="btnCompartilhar" aria-label="Compartilhar este recorte" title="Compartilhar este recorte"><svg viewBox="0 0 14 14"><path d="M7 1.5v8M4 4.5l3-3 3 3M2.5 8v4h9V8"/></svg></button>
       <span class="live" id="live" data-st="carregando"><i></i><span class="lw">Atualizado às </span><span id="liveTxt">conectando…</span></span>
     </div>
   </header>
@@ -76,7 +79,7 @@
         <div class="prog"><i id="andamentoBarra"></i></div>
         <div class="micro" id="andamentoTxt"></div>
       </div>
-      <div class="sec hd" style="margin-bottom:8px"><h3>Candidatos</h3><span class="aside" id="candRecorte"></span></div>
+      <div class="sec hd" style="margin-bottom:8px"><h3 id="candTitulo">Candidatos</h3><span class="aside" id="candRecorte"></span></div>
       <input class="campo" id="candFiltro" type="search" placeholder="Filtrar por nome, número ou partido" autocomplete="off" aria-label="Filtrar candidatos">
       <ul class="lista" id="candLista"></ul>
     </section>
@@ -88,6 +91,8 @@
       <div class="seg2 switch" id="modoMapa" role="group" aria-label="O mapa mostra">
         <button type="button" data-modo="lider">Líder</button>
         <button type="button" data-modo="candidato">Candidato</button>
+        <button type="button" data-modo="vantagem">Vantagem</button>
+        <button type="button" data-modo="apurado">Apurado</button>
       </div>
       <button type="button" class="btn" id="btnBrasilMun" hidden>Abrir os 5.570 municípios</button>
       <div class="legenda" id="legenda"></div>

@@ -41,6 +41,7 @@ export async function detectar() {
 }
 
 export const ativo = () => !!base;
+export const desligar = () => { base = null; };
 export const endereco = () => (base ? base.href : "");
 
 export async function json(rel) {

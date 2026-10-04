@@ -3,18 +3,69 @@
 // tudo direto da fonte. Este módulo monta os endereços, controla a fila de
 // requisições e normaliza os JSON de resultado num formato único.
 
-export const BASE = "https://resultados.tse.jus.br/oficial/ele2026";
-export const PLEITO = "3220";
-export const FEDERAL = "6257";
-export const ESTADUAL = "6259";
+export const RAIZ = "https://resultados.tse.jus.br/oficial";
+export const BASE = `${RAIZ}/ele2026`;
+
+// Códigos do pleito e das eleições federal e estadual. Começam no 1º turno e
+// são trocados por configurar(), que lê o índice oficial de eleições do TSE.
+export let PLEITO = "3220";
+export let FEDERAL = "6257";
+export let ESTADUAL = "6259";
+export let TURNO = 1;
 
 export const CARGOS = [
-  { id: "1", nome: "Presidente", curto: "Presidente", ele: FEDERAL, nacional: true, maj: true, turno2: true },
-  { id: "3", nome: "Governador", curto: "Governador", ele: ESTADUAL, maj: true, turno2: true },
-  { id: "5", nome: "Senador", curto: "Senador", ele: ESTADUAL, maj: true },
-  { id: "6", nome: "Deputado Federal", curto: "Dep. Federal", ele: ESTADUAL, prop: true },
-  { id: "7", nome: "Deputado Estadual", curto: "Dep. Estadual", ele: ESTADUAL, prop: true }
+  { id: "1", nome: "Presidente", curto: "Presidente", get ele() { return FEDERAL; }, nacional: true, maj: true, turno2: true },
+  { id: "3", nome: "Governador", curto: "Governador", get ele() { return ESTADUAL; }, maj: true, turno2: true },
+  { id: "5", nome: "Senador", curto: "Senador", get ele() { return ESTADUAL; }, maj: true },
+  { id: "6", nome: "Deputado Federal", curto: "Dep. Federal", get ele() { return ESTADUAL; }, prop: true },
+  { id: "7", nome: "Deputado Estadual", curto: "Dep. Estadual", get ele() { return ESTADUAL; }, prop: true }
 ];
+
+// no 2º turno só há Presidente e Governador
+export const cargosDoTurno = () => (TURNO === 2 ? CARGOS.filter((c) => c.id === "1" || c.id === "3") : CARGOS);
+
+const hojeBrasilia = () => new Date().toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" });
+const isoDe = (dt) => String(dt || "").split("/").reverse().join("-");
+
+/**
+ * Escolhe o pleito de 2026 pelo índice do TSE (comum/config/ele-c.json):
+ * o turno pedido ou, sem pedido, o mais recente cuja data já chegou.
+ * Devolve { pleito, federal, estadual, turno, data }; se o índice não
+ * responder, mantém os códigos do 1º turno.
+ */
+export async function configurar({ turno } = {}) {
+  try {
+    const d = await json(`${RAIZ}/comum/config/ele-c.json`);
+    const opcoes = [];
+    for (const p of d.pl || []) {
+      if (p.c !== "ele2026") continue;
+      const fed = (p.e || []).find((e) => e.tp === "8");
+      const est = (p.e || []).find((e) => e.tp === "1");
+      if (!fed && !est) continue;
+      opcoes.push({
+        pleito: p.cd, federal: fed ? fed.cd : "", estadual: est ? est.cd : "", turno: Number((fed || est).t), data: isoDe(p.dt),
+        federal2: fed ? fed.cdt2 : "", estadual2: est ? est.cdt2 : ""
+      });
+    }
+    opcoes.sort((a, b) => a.data.localeCompare(b.data));
+    const pedido = Number(turno) || 0;
+    let escolha = pedido ? opcoes.filter((o) => o.turno === pedido).pop()
+      : opcoes.filter((o) => o.data <= hojeBrasilia()).pop() || opcoes[0];
+    // 2º turno pedido antes de o TSE publicar o pleito dele: usa os códigos
+    // de 2º turno anunciados no 1º (os resultados aparecem quando existirem)
+    if (!escolha && pedido === 2) {
+      const t1 = opcoes.filter((o) => o.turno === 1 && (o.federal2 || o.estadual2)).pop();
+      if (t1) escolha = { pleito: t1.pleito, federal: t1.federal2, estadual: t1.estadual2, turno: 2 };
+    }
+    if (escolha) {
+      PLEITO = escolha.pleito;
+      FEDERAL = escolha.federal || FEDERAL;
+      ESTADUAL = escolha.estadual || ESTADUAL;
+      TURNO = escolha.turno;
+    }
+  } catch (_) { /* índice fora do ar: segue com os códigos atuais */ }
+  return { pleito: PLEITO, federal: FEDERAL, estadual: ESTADUAL, turno: TURNO };
+}
 
 export const UFS = [
   ["ac", "Acre", "12"], ["al", "Alagoas", "27"], ["ap", "Amapá", "16"], ["am", "Amazonas", "13"],
@@ -233,7 +284,8 @@ export const geracao = (r) => { const [d, h] = String(r.gerado || "").split(" ")
 
 // Lista de municípios: { uf: [{cd, ibge, nome, zonas, capital}] }
 export async function municipios() {
-  const d = await json(url.municipios(FEDERAL), { validade: 36e5 });
+  // no começo do 2º turno o TSE pode ainda não ter a lista nova; a do 1º serve
+  const d = await json(url.municipios(FEDERAL), { validade: 36e5 }).catch(() => json(url.municipios("6257"), { validade: 36e5 }));
   const out = {};
   for (const a of d.abr || []) {
     out[a.cd] = (a.mu || []).map((m) => ({

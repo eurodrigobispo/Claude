@@ -1,0 +1,14 @@
+# HTTPS automático para o domínio em DOMINIO (Let's Encrypt).
+{
+	email {$EMAIL}
+}
+
+{$DOMINIO} {
+	encode zstd gzip
+
+	# o contador de pessoas online nunca vai para cache
+	@vivo path /api/*
+	header @vivo Cache-Control "no-store"
+
+	reverse_proxy painel:8080
+}

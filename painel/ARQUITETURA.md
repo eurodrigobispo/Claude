@@ -108,6 +108,18 @@ Medido na noite de 4/10, rodando nesta sessão:
 O painel detecta o feed sozinho (em `../feed/` ou por `?feed=`) e, sem ele,
 volta a ler o TSE direto.
 
+**Turnos.** Painel e coletor leem o índice de eleições do TSE
+(`comum/config/ele-c.json`) e escolhem o pleito mais recente cuja data já
+chegou. O coletor confere de novo a cada 10 minutos. Quando o 2º turno é
+publicado, ele recomeça histórico e eventos, e guarda os retratos do 1º turno
+em `arquivo/t1/`. Antes da publicação, `--turno 2` usa os códigos de 2º turno
+que o TSE já anuncia no 1º (6258 e 6260).
+
+**Implantação.** `deploy/` traz Docker Compose com Caddy (HTTPS automático),
+verificação de saúde (`/api/saude`, que só fica verde se o coletor leu dados do
+TSE nos últimos 2 minutos), reinício automático e um serviço do systemd para
+quem não usa Docker. O passo a passo está em `deploy/IMPLANTACAO.md`.
+
 Para levar a mesma arquitetura a todas as cidades e manter a evolução seção a
 seção, o passo seguinte é o banco analítico descrito abaixo.
 

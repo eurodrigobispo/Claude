@@ -10,7 +10,7 @@
 
 import { createServer } from "node:http";
 import { createReadStream } from "node:fs";
-import { stat } from "node:fs/promises";
+import { stat, readFile } from "node:fs/promises";
 import { join, extname, normalize, resolve, sep } from "node:path";
 import { createGzip } from "node:zlib";
 import { fileURLToPath } from "node:url";
@@ -25,6 +25,7 @@ const RAIZ = resolve(fileURLToPath(new URL("..", import.meta.url)));
 const FEED = resolve(opcao("saida", join(RAIZ, "feed")));
 const PORTA = Number(opcao("porta", process.env.PORT || 8080));
 const JANELA_VIVO = 45e3;
+const coletando = args.includes("--coletar");
 
 const TIPOS = {
   ".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".mjs": "text/javascript; charset=utf-8",
@@ -105,6 +106,19 @@ const servidor = createServer(async (req, res) => {
       }
       res.writeHead(200, cab);
       res.end(JSON.stringify({ n: contarVivos() }));
+      return;
+    }
+    // saúde: 200 se o coletor gravou o placar nos últimos 2 minutos
+    if (u.pathname === "/api/saude") {
+      let corpo = { ok: false, motivo: "sem estado do coletor" };
+      try {
+        const e = JSON.parse(await readFile(join(FEED, "estado.json"), "utf8"));
+        const atraso = Math.round((Date.now() - Date.parse(e.ultimaLeitura)) / 1000);
+        corpo = { ok: atraso < 120, atrasoSegundos: atraso, ultimaLeitura: e.ultimaLeitura, ciclos: e.ciclos, falhas: e.falhas, ultimoErro: e.ultimoErro };
+      } catch (_) { /* coletor ainda não gravou nada */ }
+      if (!coletando && !corpo.ok) corpo = { ok: true, motivo: "servidor sem coletor" };
+      res.writeHead(corpo.ok ? 200 : 503, { "content-type": "application/json", "cache-control": "no-store" });
+      res.end(JSON.stringify(corpo));
       return;
     }
     if (u.pathname === "/") {

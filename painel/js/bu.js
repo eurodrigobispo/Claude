@@ -4,9 +4,11 @@
 // Somar os BUs de uma cidade reproduz exatamente os totais oficiais do
 // município, e permite abrir o resultado por zona, local de votação e seção.
 
-import { url, json, bytes, fila, ESTADUAL, FEDERAL } from "./tse.js";
+import * as tse from "./tse.js";
+import { url, json, bytes, fila } from "./tse.js";
 
-const ELEICOES = new Set([Number(FEDERAL), Number(ESTADUAL)]);
+// as eleições do turno configurado (os códigos mudam do 1º para o 2º turno)
+const eleicoes = () => new Set([Number(tse.FEDERAL), Number(tse.ESTADUAL)]);
 
 // ---------- DER mínimo ----------
 
@@ -71,6 +73,7 @@ export function lerBU(b) {
   const secao = inteiro(b, idf[idf.length - 1]);
 
   const out = { zona, local, secao, aptos: {}, cargos: {} };
+  const ELEICOES = eleicoes();
   for (const p of partes) {
     if (!ehSeq(p)) continue;
     for (const porEleicao of filhos(b, p)) {

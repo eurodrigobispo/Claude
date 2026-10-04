@@ -1,0 +1,14 @@
+{
+  "name": "painel-eleitoral-2026",
+  "version": "1.0.0",
+  "description": "Painel analítico e coletor em tempo real da apuração das Eleições 2026.",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=22" },
+  "scripts": {
+    "start": "node coletor/servidor.mjs --coletar",
+    "servidor": "node coletor/servidor.mjs",
+    "coletor": "node coletor/coletor.mjs",
+    "teste": "node test/painel.mjs && node test/coletor.mjs && node test/apuracao.mjs && node test/smoke.mjs"
+  }
+}

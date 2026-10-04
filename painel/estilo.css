@@ -654,6 +654,63 @@ tbody tr[aria-current="true"] { background: #fafaf917; }
 .dossie h4 { margin: 14px 0 4px; font-weight: 500; font-size: var(--t-label); color: var(--fg-3); }
 .vazio-d { color: var(--fg-3); }
 
+/* ---------- visão de estados, regiões, picos, aviso ---------- */
+.faixa-uf { display: grid; grid-template-columns: repeat(9, 1fr); gap: 4px; margin: 2px 0 4px; }
+.tile {
+  height: 24px;
+  border: 0;
+  border-radius: 4px;
+  font-weight: 600;
+  font-size: var(--t-micro);
+  letter-spacing: .06em;
+  transition: box-shadow var(--hover) var(--ease);
+}
+.tile:hover, .tile:focus-visible { box-shadow: 0 0 0 2px var(--fg); outline: 0; }
+.crow.disputa { grid-template-columns: 30px 1fr auto; }
+.crow.disputa .uft { min-width: 30px; }
+.crow.disputa .val { font-size: var(--t-label); }
+.krow.estatico { cursor: default; }
+.krow.estatico:hover { background: none; }
+.reg {
+  width: calc(100% + 16px);
+  margin: 0 -8px;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 3px 10px;
+  padding: 7px 8px;
+  border: 0;
+  border-radius: 10px;
+  background: none;
+  text-align: left;
+  box-shadow: inset 0 1px 0 var(--line);
+}
+.reg:first-of-type { box-shadow: none; }
+.reg[data-ir-area]:hover { background: #fafaf90d; }
+.reg-nome { font-weight: 500; font-size: var(--t-body); }
+.reg-nome small { display: block; font-weight: 400; font-size: var(--t-micro); color: var(--fg-3); }
+.reg-val { display: flex; align-items: center; gap: 6px; font-weight: 500; font-size: var(--t-body); }
+.reg-val .pm { font-size: var(--t-micro); }
+.reg-val small { font-size: var(--t-micro); color: var(--fg-3); }
+.reg-barra { grid-column: 2; justify-self: end; position: relative; width: 64px; height: 3px; border-radius: 3px; background: var(--panel-3); }
+.reg-barra i { position: absolute; inset: 0 auto 0 0; border-radius: 3px; background: var(--c); }
+.reg-barra b { position: absolute; left: 50%; top: -2px; bottom: -2px; width: 1px; background: var(--fg); }
+#gPicos path { stroke: rgba(15, 14, 13, .6); stroke-width: .6; vector-effect: non-scaling-stroke; pointer-events: none; }
+.aviso {
+  position: absolute;
+  top: 64px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 50;
+  padding: 9px 16px;
+  border-radius: 100px;
+  background: #1b1a17f5;
+  border: 1px solid var(--line-2);
+  box-shadow: 0 14px 32px #00000073;
+  font-weight: 500;
+  font-size: var(--t-label);
+}
+
 /* ---------- ao longo da apuração e eventos ---------- */
 .evolucao { display: block; width: 100%; height: auto; margin-top: 8px; overflow: visible; }
 .evolucao .grade { stroke: rgba(250, 250, 249, .07); stroke-width: 1; }

@@ -67,7 +67,8 @@ const somaUfs = Object.entries(agora1.corridas["1"]).filter(([uf]) => uf !== "br
 check("Brasil é a soma dos estados quando o nacional atrasa", agora1.corridas["1"].br.totalizadas === somaUfs, `${agora1.corridas["1"].br.totalizadas} vs ${somaUfs}`);
 check("candidatos com nome e partido", lerFeed("candidatos.json").candidatos["3-ac"].some((c) => c.nome && c.partido));
 check("histórico começa", (lerFeed("historico.json").series["3-ac"] || []).length === 1);
-check("arquivo do minuto", lerFeed("arquivo/indice.json").minutos.length === 1);
+check("arquivo do minuto", lerFeed("arquivo/t1/indice.json").minutos.length === 1);
+check("feed identifica turno e pleito", agora1.turno === 1 && !!agora1.pleito);
 
 console.log("\nmudanças entre ciclos");
 const gov = fixture("ac-c0003-e006259-u.json");

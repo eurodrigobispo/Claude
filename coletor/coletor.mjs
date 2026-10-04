@@ -41,11 +41,16 @@ export const CONFIG = {
   // cargos guardados por seção nas zonas; deputados multiplicam a memória
   cargosZonas: opcao("zonas-cargos", "1,3,5").split(",").filter(Boolean),
   paralelo: Number(opcao("paralelo", 12)),
+  // turno forçado; sem ele, o coletor segue o índice do TSE e troca sozinho
+  turno: Number(opcao("turno", 0)) || 0,
   umaVez: bandeira("uma-vez")
 };
 
 const UFS = tse.UFS.map(([cd]) => cd);
-const MAJORITARIOS = [["1", ["br", ...UFS, "zz"]], ["3", UFS], ["5", UFS]];
+// disputas majoritárias do turno: no 2º, só Presidente e Governador
+const majoritarios = () => [["1", ["br", ...UFS, "zz"]], ["3", UFS], ["5", UFS]]
+  .filter(([cargo]) => tse.cargosDoTurno().some((c) => c.id === cargo));
+const cargosMunicipais = () => CONFIG.cargosMunicipais.filter((c) => tse.cargosDoTurno().some((x) => x.id === c));
 
 // ---------- estado ----------
 
@@ -128,7 +133,7 @@ function resumo(r) {
 
 async function lerMajoritarios() {
   const pedidos = [];
-  for (const [cargo, ufs] of MAJORITARIOS) for (const uf of ufs) pedidos.push({ cargo, uf });
+  for (const [cargo, ufs] of majoritarios()) for (const uf of ufs) pedidos.push({ cargo, uf });
   const novos = new Map();
   await tse.fila(pedidos, async ({ cargo, uf }) => {
     const r = tse.lerResultado(await pedir(tse.url.resultado(cargo, uf)));
@@ -257,7 +262,7 @@ export async function lerMunicipios(limite = 1500) {
   municipios ||= await tse.municipios();
   const tarefas = [];
   const ufsMudadas = new Set();
-  for (const cargo of CONFIG.cargosMunicipais) {
+  for (const cargo of cargosMunicipais()) {
     const def = tse.cargoDef(cargo);
     const ufs = def.nacional ? [...UFS, "zz"] : UFS;
     await tse.fila(ufs, async (uf) => {
@@ -376,18 +381,19 @@ async function publicar() {
   }
   const br = estado.corridas.get("1-br");
   const seq = Math.floor(Date.now() / 1000);
-  const agora = { versao: 1, seq, gerado: new Date().toISOString(), hora: agoraBrasilia(), turno: 1, totalizado: br ? br.hora : null, corridas };
+  const turno = tse.TURNO, pleito = tse.PLEITO;
+  const agora = { versao: 1, seq, gerado: new Date().toISOString(), hora: agoraBrasilia(), turno, pleito, totalizado: br ? br.hora : null, corridas };
   await gravar("agora.json", agora);
-  await gravar("candidatos.json", { versao: 1, candidatos: estado.candidatos });
-  await gravar("historico.json", { versao: 1, seq, series: estado.historico });
-  await gravar("eventos.json", { versao: 1, seq, eventos: estado.eventos.slice(0, 120) });
+  await gravar("candidatos.json", { versao: 1, turno, candidatos: estado.candidatos });
+  await gravar("historico.json", { versao: 1, seq, turno, pleito, series: estado.historico });
+  await gravar("eventos.json", { versao: 1, seq, turno, pleito, eventos: estado.eventos.slice(0, 120) });
 
   // um retrato por minuto para rever a noite
   const minuto = agoraBrasilia().slice(0, 5).replace(":", "");
   if (!estado.arquivados.has(minuto)) {
     estado.arquivados.add(minuto);
-    await gravar(`arquivo/${minuto}.json`, agora);
-    await gravar("arquivo/indice.json", { versao: 1, minutos: [...estado.arquivados].sort() });
+    await gravar(`arquivo/t${turno}/${minuto}.json`, agora);
+    await gravar(`arquivo/t${turno}/indice.json`, { versao: 1, turno, minutos: [...estado.arquivados].sort() });
   }
 }
 
@@ -408,7 +414,9 @@ export async function cicloPlacar() {
   const lidas = await lerMajoritarios();
   await publicar();
   estado.saude.ciclos++;
-  estado.saude.ultimaLeitura = new Date().toISOString();
+  estado.saude.ultimaTentativa = new Date().toISOString();
+  // a saúde só conta leitura que trouxe dados: TSE inacessível não é "ok"
+  if (lidas > 0) estado.saude.ultimaLeitura = estado.saude.ultimaTentativa;
   estado.saude.ultimoCicloMs = Date.now() - t0;
   estado.saude.disputas = lidas;
   await publicarSaude();
@@ -435,27 +443,50 @@ async function laco(nome, passo, pausa) {
 }
 
 async function retomar() {
-  // reaproveita histórico e eventos de uma execução anterior na mesma pasta
+  // reaproveita histórico e eventos de uma execução anterior do mesmo turno
+  const mesmo = (d) => d && (d.turno || 1) === tse.TURNO && (!d.pleito || d.pleito === tse.PLEITO);
   const h = await lerJsonLocal("historico.json", null);
-  if (h && h.series) estado.historico = h.series;
+  if (mesmo(h) && h.series) estado.historico = h.series;
   const ev = await lerJsonLocal("eventos.json", null);
-  if (ev && ev.eventos) estado.eventos = ev.eventos;
-  const idx = await lerJsonLocal("arquivo/indice.json", null);
+  if (mesmo(ev) && ev.eventos) estado.eventos = ev.eventos;
+  const idx = await lerJsonLocal(`arquivo/t${tse.TURNO}/indice.json`, null);
   if (idx && idx.minutos) idx.minutos.forEach((m) => estado.arquivados.add(m));
+}
+
+// Sem turno forçado, confere o índice do TSE a cada 10 min; quando o pleito
+// muda (do 1º para o 2º turno), recomeça do zero sem misturar os dois.
+let proximaConferencia = 0;
+async function conferirTurno() {
+  if (CONFIG.turno || Date.now() < proximaConferencia) return;
+  proximaConferencia = Date.now() + 600e3;
+  const antes = `${tse.PLEITO}-${tse.FEDERAL}`;
+  await tse.configurar();
+  if (`${tse.PLEITO}-${tse.FEDERAL}` === antes) return;
+  console.log(`[${agoraBrasilia()}] novo pleito ${tse.PLEITO}, ${tse.TURNO}º turno: recomeçando`);
+  Object.assign(estado, {
+    corridas: new Map(), historico: {}, eventos: [], candidatos: {}, municipal: new Map(),
+    zonas: new Map(), secoes: new Map(), arquivados: new Set()
+  });
+  municipios = null;
+  await retomar();
 }
 
 export async function iniciar() {
   await mkdir(CONFIG.saida, { recursive: true });
+  const t = await tse.configurar({ turno: CONFIG.turno });
+  console.log(`[${agoraBrasilia()}] pleito ${t.pleito}, ${t.turno}º turno (federal ${t.federal}, estadual ${t.estadual})`);
+  proximaConferencia = Date.now() + 600e3;
   await retomar();
   const jitter = () => CONFIG.intervalo * 1000 * (0.8 + Math.random() * 0.4);
   const lacos = [
     laco("placar", async () => {
+      await conferirTurno();
       const ms = await cicloPlacar();
       console.log(`[${agoraBrasilia()}] placar em ${ms} ms · ${estado.eventos.length} eventos`);
       return ms;
     }, jitter)
   ];
-  if (CONFIG.cargosMunicipais.length) {
+  if (cargosMunicipais().length) {
     lacos.push(laco("municípios", async () => {
       const t0 = Date.now();
       const r = await lerMunicipios();

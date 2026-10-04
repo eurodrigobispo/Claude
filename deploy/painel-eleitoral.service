@@ -1,0 +1,19 @@
+# Alternativa sem Docker: serviço do systemd.
+#   sudo cp deploy/painel-eleitoral.service /etc/systemd/system/
+#   sudo systemctl daemon-reload && sudo systemctl enable --now painel-eleitoral
+[Unit]
+Description=Painel Eleitoral 2026 (painel + coletor)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=painel
+WorkingDirectory=/opt/painel-eleitoral
+ExecStart=/usr/bin/node coletor/servidor.mjs --coletar --porta 8080 --saida /opt/painel-eleitoral/feed
+Restart=always
+RestartSec=5
+Environment=NODE_ENV=production
+
+[Install]
+WantedBy=multi-user.target
