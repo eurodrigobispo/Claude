@@ -254,7 +254,7 @@ button { cursor: pointer; }
 .seg2 button { height: auto; padding: 7px 11px; font-size: var(--t-label); }
 .seg2 button:disabled { color: var(--fg-5); cursor: default; }
 
-.busca { position: relative; flex: 1 1 0; min-width: 0; max-width: 620px; display: flex; gap: 6px; }
+.busca { position: relative; flex: 1 1 0; min-width: 0; max-width: 560px; display: flex; gap: 6px; }
 .busca .seletor { max-width: 140px; flex: none; }
 .busca-campo {
   flex: 1;
@@ -653,6 +653,26 @@ tbody tr[aria-current="true"] { background: #fafaf917; }
 .dossie h4 { margin: 14px 0 4px; font-weight: 500; font-size: var(--t-label); color: var(--fg-3); }
 .vazio-d { color: var(--fg-3); }
 
+/* ---------- ao longo da apuração e eventos ---------- */
+.evolucao { display: block; width: 100%; height: auto; margin-top: 8px; overflow: visible; }
+.evolucao .grade { stroke: rgba(250, 250, 249, .07); stroke-width: 1; }
+.evolucao .g50 { stroke: var(--fg-4); stroke-width: 1; stroke-dasharray: 2 4; }
+.evolucao text { font: 500 var(--t-micro) var(--sans); fill: var(--fg-3); }
+.evolucao path { fill: none; stroke-width: 1.5; stroke-linejoin: round; stroke-linecap: round; }
+.leg-linha.esq { justify-content: flex-start; font-weight: 500; font-size: var(--t-micro); color: var(--fg-3); }
+.leg-linha.esq i { width: 12px; height: 3px; border-radius: 2px; }
+.eventos { list-style: none; margin: 0; padding: 0; }
+.eventos li { display: grid; grid-template-columns: 40px 1fr; gap: 10px; padding: 9px 0; box-shadow: inset 0 1px 0 var(--line); }
+.eventos li:first-child { box-shadow: none; padding-top: 0; }
+.eventos .t { font-weight: 500; font-size: var(--t-micro); color: var(--fg-3); padding-top: 2px; }
+.eventos p { margin: 0; font-size: var(--t-body); line-height: 1.4; color: var(--fg-2); }
+.eventos .ev-eleito p, .eventos .ev-virada p { color: var(--fg); }
+
+.vivos { display: flex; align-items: center; gap: 6px; font-weight: 500; font-size: var(--t-label); color: var(--fg-2); white-space: nowrap; }
+.vivos svg { width: 14px; height: 14px; fill: none; stroke: var(--fg-3); stroke-width: 1.3; }
+.vivos b { font-weight: 500; color: var(--fg); }
+.vivos .rot { display: none; }
+
 /* ---------- gaveta recolhida e telas menores ---------- */
 .hud.fechada { --gaveta: 46px; }
 .hud.fechada .gaveta-corpo, .hud.fechada .gaveta-cab .campo, .hud.fechada #tabNota { display: none; }
@@ -663,7 +683,7 @@ tbody tr[aria-current="true"] { background: #fafaf917; }
 }
 @media (max-width: 1360px) {
   :root { --col-l: 312px; --col-r: 296px; }
-  .marca span, kbd, .live .lw { display: none; }
+  .marca span, kbd, .live .lw, .vivos { display: none; }
   .topo { gap: 12px; }
   .marca { flex-basis: auto; }
   .marca b { font-size: 20px; }

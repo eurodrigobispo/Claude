@@ -151,10 +151,28 @@ python3 scripts/etl_tse.py historico
 que é preciso no servidor para levar zonas e locais a todas as cidades em
 tempo real.
 
-## Teste
+## Coletor em tempo real
+
+`coletor/` lê o TSE a cada 15 s e publica um feed para o painel. O feed traz:
+- o placar de todas as disputas;
+- um arquivo por estado com todos os municípios;
+- as zonas das capitais somadas dos boletins de urna;
+- a evolução da noite, as últimas atualizações e um retrato por minuto.
+
+```
+node coletor/servidor.mjs --coletar --porta 8080
+```
+
+Com isso o painel em `http://localhost:8080/painel/` passa a ler do feed. No
+painel aparecem os blocos "Ao longo da apuração" e "Últimas atualizações" e o
+contador de pessoas online. Detalhes, opções e publicação com Docker em
+`coletor/LEIAME.md`.
+
+## Testes
 
 ```
 node test/painel.mjs
+node test/coletor.mjs
 ```
 
 Sobe um servidor local e serve recortes reais do TSE e do IBGE a partir de

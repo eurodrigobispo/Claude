@@ -1,4 +1,5 @@
 import * as tse from "./tse.js";
+import * as feed from "./feed.js";
 import { apurarCidade, agrupar } from "./bu.js";
 import { malha, projetar, zoomavel } from "./geo.js";
 import { perfil, municipios2022, referencia2022, comparar, leitura, pctTxt, pp } from "./analise.js";
@@ -59,7 +60,13 @@ const st = {
   indice: null,
   proxima: 0,
   proximaCidade: 0,
-  escala: 1
+  escala: 1,
+  agora: null,          // agora.json do coletor
+  candFeed: {},         // candidatos.json do coletor
+  historico: null,      // séries ao longo da apuração (coletor ou arquivo)
+  eventos: [],          // últimas atualizações (coletor ou arquivo)
+  arquivo: false,       // histórico e eventos vêm do arquivo da noite, não do coletor
+  vivos: null           // pessoas com o painel aberto agora
 };
 
 let zoom = null;
@@ -166,6 +173,37 @@ function linhasAnalise(n) {
   return out;
 }
 
+// ---------- coletor ----------
+
+const doColetor = (cargo = st.cargo) => feed.ativo() && ["1", "3", "5"].includes(cargo);
+
+function resultadoDoFeed(cargo, uf) {
+  const c = st.agora && st.agora.corridas[cargo] && st.agora.corridas[cargo][uf];
+  const nomes = st.candFeed[`${cargo}-${uf}`];
+  return c && nomes ? feed.paraResultado(c, nomes) : null;
+}
+
+// linha de município do feed no formato de resultado (com os nomes do estado)
+function resultadoDaLinha(l) {
+  const base = st.resumoUF ? st.resumoUF.cands : [];
+  return feed.paraResultado({ ...l, total: l.validos + l.brancos + l.nulos, situacao: {} }, base.map((c) => ({ ...c, vices: c.vices.map((v) => v.nome) })));
+}
+
+async function carregarHistorico() {
+  try {
+    if (feed.ativo()) {
+      const [h, e] = await Promise.all([feed.json("historico.json"), feed.json("eventos.json")]);
+      st.historico = h.series;
+      st.eventos = e.eventos;
+      st.arquivo = false;
+      return;
+    }
+    const [h, e] = await Promise.all(["historico", "eventos"].map((f) => fetch(`dados/arquivo-1t/${f}.json`).then((r) => (r.ok ? r.json() : null))));
+    if (h) { st.historico = h.series; st.arquivo = true; }
+    if (e) st.eventos = e.eventos;
+  } catch (_) { /* sem histórico: os blocos não aparecem */ }
+}
+
 // ---------- escala de desktop ----------
 
 // Desenhado numa tela lógica de 1600×900; em monitores maiores tudo cresce
@@ -246,7 +284,7 @@ async function carregarBase() {
   const { signal } = st.ctrl;
   Object.assign(st, {
     matriz: new Map(), andamento: {}, nacional: new Map(), nacionalR: new Map(), nacionalMun: false,
-    cidade: null, resumoUF: null, resumo: null, comp: null, carga: null
+    cidade: null, resumoUF: null, resumo: null, comp: null, carga: null, linhasFeed: null
   });
   st.tabela.filtro = "";
   $("#tabFiltro").value = "";
@@ -256,7 +294,8 @@ async function carregarBase() {
   renderTudo();
 
   try {
-    st.resumoUF = tse.lerResultado(await tse.json(tse.url.resultado(st.cargo, st.uf), { signal }));
+    st.resumoUF = (doColetor() && resultadoDoFeed(st.cargo, st.uf)) ||
+      tse.lerResultado(await tse.json(tse.url.resultado(st.cargo, st.uf), { signal }));
   } catch (_) {
     if (ger !== st.geracao) return;
   }
@@ -286,7 +325,8 @@ async function carregarMunicipio() {
   focarMunicipio();
   renderTudo();
   try {
-    const r = tse.lerResultado(await tse.json(tse.url.resultado(st.cargo, st.uf, mun), { signal: st.ctrl.signal }));
+    const l = doColetor() && st.linhasFeed && st.linhasFeed.get(mun);
+    const r = l ? resultadoDaLinha(l) : tse.lerResultado(await tse.json(tse.url.resultado(st.cargo, st.uf, mun), { signal: st.ctrl.signal }));
     if (ger !== st.geracao || mun !== st.mun) return;
     st.resumo = r;
     st.matriz.set(mun, linhaDe(mun, r));
@@ -305,6 +345,8 @@ async function carregarMatriz(ger, signal, soMudados = false) {
     await carregarNacional(ger, signal, soMudados);
     return;
   }
+  // com coletor, a UF inteira vem num arquivo só
+  if (doColetor() && await matrizDoFeed(ger, st.uf, st.cargo)) return;
   const lista = listaMun();
   if (!lista.length) return;
   let alvo = lista;
@@ -317,6 +359,20 @@ async function carregarMatriz(ger, signal, soMudados = false) {
   if (!alvo.length) return;
   await baixarMunicipios(ger, signal, alvo.map((m) => ({ uf: st.uf, cd: m.cd, cargo: st.cargo })),
     soMudados ? "Atualizando municípios" : "Carregando municípios", 16);
+}
+
+async function matrizDoFeed(ger, uf, cargo) {
+  try {
+    const d = await feed.json(`uf/${uf}-c${cargo}.json`);
+    if (ger !== st.geracao) return true;
+    const linhas = feed.linhasDaUf(d);
+    if (uf === st.uf) st.linhasFeed = linhas;
+    for (const [cd, l] of linhas) st.matriz.set(cd, linhaDe(cd, resultadoDaLinha(l)));
+    renderTudo();
+    return true;
+  } catch (_) {
+    return false;
+  }
 }
 
 async function baixarMunicipios(ger, signal, alvos, rotulo, n) {
@@ -353,6 +409,17 @@ async function baixarMunicipios(ger, signal, alvos, rotulo, n) {
 
 async function carregarNacional(ger, signal, soMudados = false) {
   const ufs = tse.UFS.map(([cd]) => cd).concat("zz");
+  if (doColetor("1") && st.agora) {
+    for (const uf of ufs) {
+      const r = resultadoDoFeed("1", uf);
+      if (r) { st.nacional.set(uf, linhaDe(uf, r)); st.nacionalR.set(uf, r); }
+    }
+    renderTudo();
+    if (st.nacionalMun) {
+      for (const uf of tse.UFS.map(([cd]) => cd)) if (!(await matrizDoFeed(ger, uf, "1"))) break;
+    }
+    return;
+  }
   await tse.fila(ufs, async (uf) => {
     const r = tse.lerResultado(await tse.json(tse.url.resultado("1", uf), { signal }));
     if (ger !== st.geracao) return;
@@ -400,6 +467,8 @@ async function carregarTodosMunicipios(ger, signal, soMudados = false) {
 // ---------- cidade: boletins de urna ----------
 
 async function abrirCidade(ger, mun) {
+  // com coletor, as zonas já vêm somadas (inclusive de cidades grandes)
+  if (feed.ativo() && await zonasDoFeed(ger, mun)) return;
   let zonas;
   try {
     zonas = (await secoesUF(st.uf))[mun];
@@ -421,6 +490,35 @@ async function abrirCidade(ger, mun) {
   st.cidade = { cd: mun, cache: new Map(), res: null, total, zonas, carga: { feitos: 0, total } };
   renderTudo();
   await apurarSecoes(ger, mun);
+}
+
+async function zonasDoFeed(ger, mun) {
+  try {
+    const d = await feed.json(`zonas/${st.uf}-${mun}.json`);
+    if (ger !== st.geracao || mun !== st.mun) return true;
+    const enquadrada = st.cidade && st.cidade.cd === mun ? st.cidade.enquadrada : null;
+    st.cidade = { cd: mun, feedZonas: d, enquadrada, res: { lidas: d.lidas, recebidas: d.recebidas, total: d.total, aguardando: d.aguardando } };
+    st.proximaCidade = Date.now() + 60e3;
+    renderTudo();
+    return true;
+  } catch (_) {
+    return false;
+  }
+}
+
+// zonas, locais ou seções da cidade aberta, vindos do coletor ou dos boletins
+function gruposCidade(por) {
+  const c = st.cidade;
+  if (!c || !c.res) return [];
+  if (c.feedZonas) {
+    const g = c.feedZonas.cargos[codCargo()];
+    if (!g) return [];
+    return (por === "local" ? g.locais : g.zonas).map((x) => ({
+      ...x, zona: String(x.zona), local: String(x.local),
+      chave: por === "local" ? `${x.zona}/${x.local}` : String(x.zona)
+    }));
+  }
+  return agrupar(c.res.secoes, codCargo(), por);
 }
 
 async function apurarSecoes(ger, mun) {
@@ -614,7 +712,7 @@ function pintarLocais() {
     $("#gArea").classList.remove("com-locais");
     return;
   }
-  const grupos = agrupar(c.res.secoes, codCargo(), "local");
+  const grupos = gruposCidade("local");
   const n = st.modo === "candidato" ? st.cand : "";
   const cand = n && candInfo(n);
   const noRecorte = n && st.resumo ? st.resumo.cands.find((x) => x.n === n) : null;
@@ -809,7 +907,7 @@ function renderCabecalho() {
 // votos no recorte mais fino disponível: zona (pelos boletins), cidade ou estado
 function resultadoRecorte() {
   if (st.zona && st.cidade && st.cidade.res) {
-    const g = agrupar(st.cidade.res.secoes, codCargo(), "zona").find((x) => x.zona === st.zona);
+    const g = gruposCidade("zona").find((x) => x.zona === st.zona);
     if (!g || !st.resumoUF) return null;
     const cands = st.resumoUF.cands.map((c) => ({ ...c, votos: g.votos[c.n] || 0 }));
     cands.forEach((c) => { c.pct = g.validos ? c.votos / g.validos * 100 : 0; });
@@ -930,6 +1028,7 @@ function renderDossie() {
       ${noRecorte ? kpi(rr.rotulo, fmt.format(noRecorte.votos), `${pctTxt(noRecorte.pct)} · ${noRecorte.pos}º lugar`) : kpi("Eleitorado onde lidera", p.municipios ? pctTxt(p.eleitoradoLideraPct) : "—", "do recorte")}
     </div>
     ${origemNaCidade(c)}
+    ${!st.mun ? graficoEvolucao([c.n, (st.resumoUF.cands.find((x) => x.n !== c.n) || {}).n]) : ""}
     <section class="sec" id="dLeitura"><div class="hd"><h3>Leitura estratégica</h3></div><p class="nota">Calculando…</p></section>
     ${p.municipios ? `
     <section class="sec"><div class="hd"><h3>Desempenho por porte</h3><span class="aside">média ${pctTxt(p.media)}</span></div>
@@ -949,10 +1048,9 @@ function renderDossie() {
 // resumo da cidade aberta, a partir dos boletins: zonas e locais que mais pesam
 function origemNaCidade(c) {
   const cid = st.cidade;
-  if (!st.mun || !cid || !cid.res || !cid.res.secoes.length) return "";
-  const cargo = codCargo();
-  const zonas = agrupar(cid.res.secoes, cargo, "zona");
-  const locs = agrupar(cid.res.secoes, cargo, "local");
+  if (!st.mun || !cid || !cid.res || !cid.res.lidas) return "";
+  const zonas = gruposCidade("zona");
+  const locs = gruposCidade("local");
   const total = zonas.reduce((s, g) => s + (g.votos[c.n] || 0), 0);
   if (!total) return "";
   const corT = corTexto(c.partido);
@@ -1034,6 +1132,56 @@ async function base2022(cargo) {
   return out;
 }
 
+// ---------- ao longo da apuração ----------
+
+// Linhas de % dos válidos contra % das seções totalizadas, como o coletor
+// registrou. `nums` escolhe os candidatos; sem ele, os dois primeiros.
+function graficoEvolucao(nums) {
+  if (!ehMajoritario() || !st.historico) return "";
+  const serie = st.historico[`${st.cargo}-${st.uf}`];
+  if (!serie || serie.length < 2) return "";
+  const ultimo = serie[serie.length - 1];
+  const alvo = (nums && nums.length ? nums : Object.entries(ultimo[2]).sort((a, b) => b[1] - a[1]).slice(0, 2).map(([n]) => n))
+    .filter((n, i, a) => n && a.indexOf(n) === i);
+  const W = 276, H = 132, l = 30, r = 6, t = 8, b = 20;
+  const x0 = Math.max(0, Math.floor(serie[0][1] / 10) * 10);
+  const linhas = alvo.map((n) => ({
+    n, c: candInfo(n),
+    pts: serie.filter((p) => p[3] && p[2][n] != null).map((p) => [p[1], p[2][n] / p[3] * 100])
+  })).filter((x) => x.pts.length > 1);
+  if (!linhas.length) return "";
+  const ys = linhas.flatMap((x) => x.pts.map((p) => p[1]));
+  let y0 = Math.floor(Math.min(...ys) - 1), y1 = Math.ceil(Math.max(...ys) + 1);
+  if (y1 - y0 < 4) { y0 -= 2; y1 += 2; }
+  const X = (v) => l + (v - x0) / (100 - x0 || 1) * (W - l - r);
+  const Y = (v) => t + (y1 - v) / (y1 - y0) * (H - t - b);
+  const passo = Math.max(1, Math.round((y1 - y0) / 4));
+  const marcas = [];
+  for (let v = Math.ceil(y0); v <= y1; v += passo) marcas.push(v);
+  const meio = cargoDef().turno2 && y0 < 50 && y1 > 50 ? `<line class="g50" x1="${l}" x2="${W - r}" y1="${Y(50).toFixed(1)}" y2="${Y(50).toFixed(1)}"></line>` : "";
+  const svg = `<svg class="evolucao" viewBox="0 0 ${W} ${H}" role="img" aria-label="Evolução dos percentuais ao longo da apuração">
+    ${marcas.map((v) => `<line class="grade" x1="${l}" x2="${W - r}" y1="${Y(v).toFixed(1)}" y2="${Y(v).toFixed(1)}"></line><text x="${l - 6}" y="${(Y(v) + 3.5).toFixed(1)}" text-anchor="end">${v}%</text>`).join("")}
+    ${meio}
+    <text x="${l}" y="${H - 5}">${x0}% das seções</text><text x="${W - r}" y="${H - 5}" text-anchor="end">100%</text>
+    ${linhas.map(({ c, pts }) => {
+      const cor = corPartido(c ? c.partido : "");
+      const d = pts.map(([px, py], i) => `${i ? "L" : "M"}${X(px).toFixed(1)} ${Y(py).toFixed(1)}`).join("");
+      const [ux, uy] = pts[pts.length - 1];
+      return `<path d="${d}" style="stroke:${cor}"></path><circle cx="${X(ux).toFixed(1)}" cy="${Y(uy).toFixed(1)}" r="3" style="fill:${cor}"></circle>`;
+    }).join("")}
+  </svg>`;
+  const legenda = linhas.map(({ c, n }) => `<span style="--c:${corPartido(c ? c.partido : "")}"><i></i>${esc(c ? c.nome : n)}</span>`).join("");
+  return `<section class="sec"><div class="hd"><h3>Ao longo da apuração</h3><span class="aside">${st.arquivo ? "arquivo da noite" : "coletor"}</span></div>
+    <div class="leg-linha esq">${legenda}</div>${svg}</section>`;
+}
+
+function listaEventos() {
+  if (!st.eventos || !st.eventos.length) return "";
+  const rel = st.eventos.filter((e) => e.tipo !== "secoes" || e.cargo === st.cargo).slice(0, 8);
+  return `<section class="sec"><div class="hd"><h3>Últimas atualizações</h3><span class="aside">${st.arquivo ? "arquivo da noite" : "coletor"}</span></div>
+    <ol class="eventos">${rel.map((e) => `<li class="ev-${e.tipo}"><span class="t">${esc(String(e.t).slice(0, 5).replace(":", "h"))}</span><p>${esc(e.texto)}</p></li>`).join("")}</ol></section>`;
+}
+
 function renderPanorama() {
   const r = st.resumo;
   if (!r) return `<p class="vazio-d">Carregando o resultado…</p>`;
@@ -1051,11 +1199,13 @@ function renderPanorama() {
       ${kpi("Brancos", fmt.format(v.brancos), pctTxt(v.total ? v.brancos / v.total * 100 : NaN) + " do total")}
       ${kpi("Nulos", fmt.format(v.nulos), pctTxt(v.total ? v.nulos / v.total * 100 : NaN) + " do total")}
     </div>
+    ${!st.mun ? graficoEvolucao() : ""}
     ${lideres.length && !st.mun ? `<section class="sec"><div class="hd"><h3>Quem lidera onde</h3><span class="aside">${unidade}</span></div>
       ${lideres.map(([n, k]) => {
         const c = candInfo(n) || { nome: n, partido: "" };
         return `<button type="button" class="krow" data-cand="${n}"><span><span class="nm">${esc(c.nome)}</span><span class="sub">${esc(c.partido)} ${esc(n)}</span></span><span class="kv" style="--c:${corTexto(c.partido)}">${fmt.format(k)}<small>${pctTxt(k / fonte.size * 100)} dos ${unidade}</small></span></button>`;
       }).join("")}</section>` : ""}
+    ${listaEventos()}
     <section class="sec"><p class="nota">Escolha um candidato na lista, no mapa ou na busca para ver o mapa da votação dele, de onde vêm os votos, a leitura estratégica e a comparação com 2022.</p></section>`;
 }
 
@@ -1078,7 +1228,7 @@ function linhasTabela() {
   const c = st.cidade;
   if (!c || !c.res) return [];
   const porLocal = st.tabela.aba === "locais";
-  const grupos = agrupar(c.res.secoes, codCargo(), porLocal ? "local" : "zona");
+  const grupos = gruposCidade(porLocal ? "local" : "zona");
   const totalCand = grupos.reduce((s, g) => s + (g.votos[n] || 0), 0);
   const loc = st.locaisCidade || {};
   const z22 = st.zonas2022 || {};
@@ -1131,7 +1281,9 @@ function renderTabela() {
   if (!linhas.length) {
     if (st.tabela.aba !== "areas" && st.cidade) {
       const nome = (munInfo(st.cidade.cd) || {}).nome || "Esta cidade";
-      vazio = st.cidade.grande ? `${nome} tem ${fmt.format(st.cidade.total)} seções. Abrir zonas e locais nesse porte precisa do coletor no servidor (veja ARQUITETURA.md).`
+      vazio = st.cidade.grande ? (feed.ativo()
+          ? `${nome} tem ${fmt.format(st.cidade.total)} seções. O coletor ainda não publicou as zonas desta cidade; elas aparecem aqui sozinhas assim que o primeiro lote de boletins for somado.`
+          : `${nome} tem ${fmt.format(st.cidade.total)} seções. Abrir zonas e locais nesse porte precisa do coletor no servidor (veja ARQUITETURA.md).`)
         : st.cidade.erro || (st.cidade.res ? "O TSE ainda não publicou boletins de urna desta cidade." : "Lendo os boletins de urna…");
     } else {
       vazio = st.carga ? "Carregando…" : "Sem dados para este recorte.";
@@ -1190,7 +1342,7 @@ function tooltipArea(id) {
 function tooltipLocal(chave) {
   const c = st.cidade;
   if (!c || !c.res) return "";
-  const g = agrupar(c.res.secoes, codCargo(), "local").find((x) => x.chave === chave);
+  const g = gruposCidade("local").find((x) => x.chave === chave);
   if (!g) return "";
   const info = st.locaisCidade && st.locaisCidade[g.zona] && st.locaisCidade[g.zona][g.local];
   const nums = Object.entries(g.votos).filter(([k]) => /^\d+$/.test(k)).sort((a, b) => b[1] - a[1]).map(([k]) => k);
@@ -1243,32 +1395,66 @@ const titulo = tse.titulo;
 // ---------- ciclo ao vivo ----------
 
 function agendar() {
-  st.proxima = Date.now() + REFRESH_S * 1000;
+  st.proxima = Date.now() + (feed.ativo() ? 15 : REFRESH_S) * 1000;
 }
 
 async function atualizarAoVivo() {
   const ger = st.geracao;
   agendar();
   $("#live").dataset.st = "carregando";
-  try {
-    const r = tse.lerResultado(await tse.json(tse.url.resultado(st.cargo, st.uf)));
-    if (ger !== st.geracao) return;
-    st.resumoUF = r;
-    st.resumo = st.mun ? tse.lerResultado(await tse.json(tse.url.resultado(st.cargo, st.uf, st.mun))) : r;
-    if (ger !== st.geracao) return;
-    $("#live").dataset.st = "ok";
-  } catch (_) {
-    $("#live").dataset.st = "erro";
-  }
-  renderTudo();
-  await carregarMatriz(ger, st.ctrl.signal, true);
-  if (st.cidade && st.cidade.cache && Date.now() >= st.proximaCidade) {
-    st.secoesUF.delete(st.uf);
+  let ok = true;
+  if (feed.ativo()) {
     try {
-      st.cidade.zonas = (await secoesUF(st.uf))[st.cidade.cd] || st.cidade.zonas;
-      await apurarSecoes(ger, st.cidade.cd);
-    } catch (_) { /* tenta no próximo ciclo */ }
+      const ag = await feed.json("agora.json");
+      const mudou = !st.agora || ag.seq !== st.agora.seq;
+      st.agora = ag;
+      if (mudou) carregarHistorico().then(() => { if (ger === st.geracao) renderDossie(); });
+    } catch (_) {
+      ok = false;
+    }
+    feed.vivo().then((n) => { st.vivos = n; renderVivos(); });
   }
+  try {
+    const r = doColetor() ? resultadoDoFeed(st.cargo, st.uf) : tse.lerResultado(await tse.json(tse.url.resultado(st.cargo, st.uf)));
+    if (r) st.resumoUF = r;
+    if (ger !== st.geracao) return;
+    if (st.mun) {
+      const l = doColetor() && st.linhasFeed && st.linhasFeed.get(st.mun);
+      st.resumo = l ? resultadoDaLinha(l) : tse.lerResultado(await tse.json(tse.url.resultado(st.cargo, st.uf, st.mun)));
+    } else {
+      st.resumo = st.resumoUF;
+    }
+  } catch (_) {
+    ok = false;
+  }
+  if (ger !== st.geracao) return;
+  $("#live").dataset.st = ok ? "ok" : "erro";
+  renderTudo();
+  // com coletor, a matriz da UF é um arquivo só e basta a cada 30 s
+  if (!doColetor() || Date.now() >= (st.proximaMatriz || 0)) {
+    st.proximaMatriz = Date.now() + 30e3;
+    await carregarMatriz(ger, st.ctrl.signal, true);
+  }
+  if (st.cidade && Date.now() >= st.proximaCidade) {
+    if (st.cidade.feedZonas || (st.cidade.grande && feed.ativo())) {
+      st.proximaCidade = Date.now() + 60e3;
+      await zonasDoFeed(ger, st.cidade.cd);
+    } else if (st.cidade.cache) {
+      st.secoesUF.delete(st.uf);
+      try {
+        st.cidade.zonas = (await secoesUF(st.uf))[st.cidade.cd] || st.cidade.zonas;
+        await apurarSecoes(ger, st.cidade.cd);
+      } catch (_) { /* tenta no próximo ciclo */ }
+    }
+  }
+}
+
+function renderVivos() {
+  const el = $("#vivos");
+  el.hidden = st.vivos == null;
+  if (st.vivos == null) return;
+  $("#vivosN").textContent = fmt.format(st.vivos);
+  $("#vivosRot").textContent = st.vivos === 1 ? "pessoa agora" : "pessoas agora";
 }
 
 setInterval(() => {
@@ -1279,7 +1465,7 @@ setInterval(() => {
   $("#liveTxt").textContent = estado === "erro" ? `Sem resposta do TSE · nova tentativa em ${resta}s`
     : estado === "carregando" ? "Atualizando…"
     : r ? `${r.hora.slice(0, 5).replace(":", "h")} · ${pctTxt(Math.floor(r.secoes.pct * 10) / 10)}` : "Ao vivo";
-  $("#live").title = `Próxima leitura do TSE em ${resta}s`;
+  $("#live").title = `${feed.ativo() ? "Dados do coletor" : "Leitura direta do TSE"} · próxima em ${resta}s`;
   if (st.proxima && Date.now() >= st.proxima && estado !== "carregando") atualizarAoVivo();
 }, 1000);
 
@@ -1502,11 +1688,16 @@ async function iniciar() {
   gravarHash();
   renderControles();
   renderTudo();
-  try {
-    st.municipios = await tse.municipios();
-  } catch (_) {
-    st.municipios = {};
+  const [, agora] = await Promise.all([
+    tse.municipios().then((m) => { st.municipios = m; }, () => { st.municipios = {}; }),
+    feed.detectar()
+  ]);
+  if (agora) {
+    st.agora = agora;
+    try { st.candFeed = (await feed.json("candidatos.json")).candidatos || {}; } catch (_) { st.candFeed = {}; }
+    feed.vivo().then((n) => { st.vivos = n; renderVivos(); });
   }
+  carregarHistorico().then(() => renderDossie());
   renderControles();
   await carregarBase();
 }

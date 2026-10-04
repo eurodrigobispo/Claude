@@ -121,9 +121,9 @@ export function lerBU(b) {
  * O TSE totaliza a seção antes de publicar o boletim dela; enquanto o arquivo
  * não sai, o pedido volta 404 e a seção conta como "aguardando publicação".
  * Erros de rede ganham mais duas tentativas, com menos pedidos em paralelo.
- * Devolve { secoes, lidas, recebidas, aguardando, falhas, total }.
+ * Devolve { secoes, lidas, recebidas, aguardando, falhas, total, baixadas }.
  */
-export async function apurarCidade(uf, mun, zonas, { cache = new Map(), signal, progresso } = {}) {
+export async function apurarCidade(uf, mun, zonas, { cache = new Map(), signal, progresso, limite = Infinity, cargos = null } = {}) {
   const lista = [];
   for (const z of zonas) for (const s of z.secoes) lista.push({ zona: z.zona, ns: s.ns, recebida: s.recebida });
   const recebidas = lista.filter((s) => s.recebida);
@@ -134,13 +134,18 @@ export async function apurarCidade(uf, mun, zonas, { cache = new Map(), signal, 
       const arq = (h.arq || []).find((a) => a.tp === "bu");
       if (!arq) continue;
       const b = await bytes(url.arquivoSecao(uf, mun, s.zona, s.ns, h.hash, arq.nm), { signal });
-      cache.set(`${s.zona}/${s.ns}`, { recebida: s.recebida, bu: lerBU(b) });
+      const bu = lerBU(b);
+      // `cargos` poupa memória quando só alguns cargos interessam (o coletor
+      // guarda dezenas de milhares de seções da capital paulista)
+      if (cargos) for (const c of Object.keys(bu.cargos)) if (!cargos.includes(c)) delete bu.cargos[c];
+      cache.set(`${s.zona}/${s.ns}`, { recebida: s.recebida, bu });
       return "ok";
     }
     return "sem-bu";
   };
 
-  let pendentes = recebidas.filter((s) => cache.get(`${s.zona}/${s.ns}`)?.recebida !== s.recebida);
+  // `limite` deixa o coletor avançar cidades grandes aos poucos, publicando a cada lote
+  let pendentes = recebidas.filter((s) => cache.get(`${s.zona}/${s.ns}`)?.recebida !== s.recebida).slice(0, limite);
   const total = pendentes.length;
   let feitos = 0, aguardando = 0;
   for (const n of [16, 6, 3]) {
@@ -164,7 +169,7 @@ export async function apurarCidade(uf, mun, zonas, { cache = new Map(), signal, 
     const c = cache.get(`${s.zona}/${s.ns}`);
     if (c) secoes.push(c.bu);
   }
-  return { secoes, lidas: secoes.length, recebidas: recebidas.length, aguardando, falhas: pendentes.length, total: lista.length };
+  return { secoes, lidas: secoes.length, recebidas: recebidas.length, aguardando, falhas: pendentes.length, total: lista.length, baixadas: total };
 }
 
 /**

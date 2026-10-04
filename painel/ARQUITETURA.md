@@ -83,7 +83,35 @@ O painel (`painel/index.html`) é estático e lê tudo direto da fonte:
 | Cada pessoa que abre o painel | Repete todas as requisições ao TSE | Não escala para audiência grande |
 | Histórico | Só 2022 e só cargos majoritários | Deputados e 2018/2024 exigem ETL maior |
 
-## 3. Arquitetura para tempo real em escala
+## 3. O coletor (já implementado)
+
+`coletor/` traz a primeira peça do servidor, no mesmo modelo do site de
+referência: um processo que lê o TSE e publica um feed de JSON pequenos, sem
+banco, servido por qualquer hospedagem estática ou CDN. Detalhes em
+`coletor/LEIAME.md`.
+
+| O que o coletor publica | Substitui no navegador |
+| --- | --- |
+| `agora.json` a cada 15 s, com as 83 disputas majoritárias | 83 leituras do TSE por pessoa por minuto |
+| `uf/<uf>-c<cargo>.json` | até 853 arquivos municipais por UF |
+| `zonas/<uf>-<mun>.json` das capitais, em lotes de 1.500 boletins | a leitura de boletins no navegador, que parava em 3.000 seções |
+| `historico.json` e `eventos.json` | (não existia: evolução da noite e últimas atualizações) |
+| `arquivo/<HHMM>.json` | (não existia: retrato de cada minuto) |
+
+Medido na noite de 4/10, rodando nesta sessão:
+- placar completo em cerca de 1 s;
+- a primeira varredura dos 16,9 mil arquivos municipais de Presidente,
+  Governador e Senador em poucos minutos;
+- Manaus, Salvador e Fortaleza com 94% a 99% dos boletins publicados já
+  somados nos primeiros 10 minutos.
+
+O painel detecta o feed sozinho (em `../feed/` ou por `?feed=`) e, sem ele,
+volta a ler o TSE direto.
+
+Para levar a mesma arquitetura a todas as cidades e manter a evolução seção a
+seção, o passo seguinte é o banco analítico descrito abaixo.
+
+## 4. Arquitetura para tempo real em escala
 
 ```
             TSE (divulgação + arquivo de urna)          Dados abertos TSE, IBGE
@@ -113,7 +141,7 @@ O painel (`painel/index.html`) é estático e lê tudo direto da fonte:
                                                Painel (este front-end)
 ```
 
-### 3.1 Coletor de resultado
+### 4.1 Coletor de resultado
 
 - Consulta `ele-c.json` e os arquivos `-ab.json` de cada UF a cada 15–30 s com
   `If-None-Match` (o TSE envia `ETag`).
@@ -122,7 +150,7 @@ O painel (`painel/index.html`) é estático e lê tudo direto da fonte:
 - Grava um *snapshot* por município e cargo com a hora de totalização, o que
   permite reconstruir a evolução da apuração.
 
-### 3.2 Coletor de boletins
+### 4.2 Coletor de boletins
 
 - Lê o `-cs.json` de cada UF e detecta seções com nova hora de recebimento.
 - Para cada uma, baixa o `-aux.json`, depois o `-bu.dat`, e decodifica com o
@@ -137,7 +165,7 @@ O painel (`painel/index.html`) é estático e lê tudo direto da fonte:
   com o arquivo municipal do TSE quando ele chega a 100%. Divergência gera
   alerta.
 
-### 3.3 Banco e agregações
+### 4.3 Banco e agregações
 
 - **ClickHouse** é a escolha natural para somar dezenas de milhões de linhas
   por zona, local ou município em milissegundos. PostgreSQL com TimescaleDB
@@ -147,7 +175,7 @@ O painel (`painel/index.html`) é estático e lê tudo direto da fonte:
 - Tabelas de apoio: candidatos (com foto, partido, coligação), locais de
   votação com coordenadas, histórico por zona e por seção.
 
-### 3.4 API
+### 4.4 API
 
 | Rota | Uso |
 | --- | --- |
@@ -162,7 +190,7 @@ As respostas mais pedidas (matriz de cada candidato por nível) são geradas com
 JSON estático e servidas por CDN; o banco só é consultado quando o dado muda.
 Assim o público não bate no TSE nem no banco.
 
-### 3.5 Mapa de zonas
+### 4.5 Mapa de zonas
 
 O TSE não publica polígono de zona eleitoral. O caminho é:
 
@@ -172,7 +200,7 @@ O TSE não publica polígono de zona eleitoral. O caminho é:
    em `js/vendor/`). No servidor, as células podem ser unidas por zona (turf.js
    no ETL) para ter o contorno de cada zona pronto.
 
-### 3.6 Histórico e comparação
+### 4.6 Histórico e comparação
 
 - 2022 por zona já está no repositório para os cargos majoritários.
 - Próximos passos do ETL: deputados de 2022 por município (para candidatos à
@@ -181,7 +209,7 @@ O TSE não publica polígono de zona eleitoral. O caminho é:
 - Para candidatos sem histórico no mesmo cargo, a referência é o partido; o
   painel deixa explícito qual critério foi usado.
 
-### 3.7 Leitura com IA (opcional)
+### 4.7 Leitura com IA (opcional)
 
 A leitura estratégica atual é calculada por regras. Um passo seguinte é passar
 as métricas já calculadas (nunca dados crus) para um modelo de linguagem, como
@@ -189,7 +217,7 @@ a API do Claude, e pedir um texto analítico. Isso roda no servidor, com a chave
 guardada lá e cache por candidato e por *snapshot*, para o custo não crescer
 com a audiência.
 
-## 4. Infraestrutura sugerida
+## 5. Infraestrutura sugerida
 
 | Peça | Opção enxuta | Opção robusta |
 | --- | --- | --- |
@@ -199,15 +227,17 @@ com a audiência.
 | Entrega | Cloudflare na frente da API e dos JSON | Igual, com regras de cache por rota |
 | Custo estimado | US$ 80–150 por mês | US$ 400+ por mês na semana da eleição |
 
-## 5. Fases
+## 6. Fases
 
 1. **Feito — protótipo estático.** Matriz por município, zonas e locais via
    boletim para cidades até 3 mil seções, comparação com 2022, leitura
    estratégica, busca global.
-2. **Coletor e banco.** Zonas e locais de todas as cidades, inclusive capitais;
-   histórico da evolução da apuração; o painel passa a ler da API trocando só a
-   camada `js/tse.js`.
-3. **Mapa de zonas e histórico amplo.** Polígonos aproximados por zona; 2018,
+2. **Feito — coletor com feed.** Placar a cada 15 s, matriz por UF, zonas das
+   capitais, evolução da noite, últimas atualizações, retrato por minuto e
+   contador de pessoas online.
+3. **Banco e API.** Zonas e locais de todas as cidades e evolução seção a
+   seção; o painel passa a ler da API trocando só a camada de dados.
+4. **Mapa de zonas e histórico amplo.** Polígonos aproximados por zona; 2018,
    2024 e deputados de 2022; comparação por seção.
-4. **Alertas e IA.** Avisos de virada por zona ou município e texto analítico
+5. **Alertas e IA.** Avisos de virada por zona ou município e texto analítico
    gerado sobre as métricas.
