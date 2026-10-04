@@ -1,0 +1,1033 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Apuração 2026</title>
+<meta name="description" content="Painel ao vivo da apuração das Eleições 2026, lendo os dados oficiais divulgados pelo TSE.">
+
+<style>
+  /* ---------- tokens: light is the base, both dark states redefine ---------- */
+  :root {
+    --ground:      #EEF0F4;
+    --surface:     #FFFFFF;
+    --surface-2:   #E6E9F0;
+    --ink:         #161B26;
+    --ink-soft:    #465063;
+    --ink-mute:    #6B7588;
+    --line:        #D5DAE4;
+    --line-strong: #B7BFCE;
+    --accent:      #3346B0;
+    --accent-wash: #E3E7FA;
+    --track:       #E3E7EE;
+    --bar:         #8E98AC;
+    --ok:          #1C7A4E;
+    --ok-wash:     #DDF1E6;
+    --warn:        #9A5B05;
+    --warn-wash:   #F7EBD6;
+    --bad:         #A3322B;
+    --focus:       #3346B0;
+    --shadow:      0 1px 2px rgba(20,26,40,.06), 0 8px 24px -14px rgba(20,26,40,.25);
+
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --mono: ui-monospace, "SF Mono", "JetBrains Mono", "Roboto Mono", Menlo, Consolas, monospace;
+
+    --r: 4px;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground:      #10141B;
+      --surface:     #181E28;
+      --surface-2:   #212936;
+      --ink:         #E7EAF0;
+      --ink-soft:    #B3BCCB;
+      --ink-mute:    #8592A5;
+      --line:        #29323F;
+      --line-strong: #3B4655;
+      --accent:      #93A2FF;
+      --accent-wash: #232A4A;
+      --track:       #232B37;
+      --bar:         #5E6A7D;
+      --ok:          #5CCB93;
+      --ok-wash:     #17352A;
+      --warn:        #E6A84A;
+      --warn-wash:   #33281A;
+      --bad:         #F08A80;
+      --focus:       #93A2FF;
+      --shadow:      0 1px 2px rgba(0,0,0,.4), 0 10px 30px -14px rgba(0,0,0,.7);
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --ground:      #10141B;
+    --surface:     #181E28;
+    --surface-2:   #212936;
+    --ink:         #E7EAF0;
+    --ink-soft:    #B3BCCB;
+    --ink-mute:    #8592A5;
+    --line:        #29323F;
+    --line-strong: #3B4655;
+    --accent:      #93A2FF;
+    --accent-wash: #232A4A;
+    --track:       #232B37;
+    --bar:         #5E6A7D;
+    --ok:          #5CCB93;
+    --ok-wash:     #17352A;
+    --warn:        #E6A84A;
+    --warn-wash:   #33281A;
+    --bad:         #F08A80;
+    --focus:       #93A2FF;
+    --shadow:      0 1px 2px rgba(0,0,0,.4), 0 10px 30px -14px rgba(0,0,0,.7);
+  }
+
+  /* ---------- base ---------- */
+  * { box-sizing: border-box; }
+
+  /* o atributo hidden precisa vencer as classes de layout que setam display */
+  [hidden] { display: none !important; }
+
+  body {
+    margin: 0;
+    background: var(--ground);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 15px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    font-variant-numeric: tabular-nums;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--focus);
+    outline-offset: 2px;
+  }
+
+  button, select, input { font: inherit; color: inherit; }
+
+  .wrap {
+    max-width: 980px;
+    margin: 0 auto;
+    padding: 0 16px 64px;
+  }
+
+  .label {
+    font-family: var(--mono);
+    font-size: 10.5px;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    color: var(--ink-mute);
+  }
+
+  /* ---------- masthead ---------- */
+  header.mast {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 12px 24px;
+    flex-wrap: wrap;
+    padding: 28px 0 18px;
+  }
+  .mast h1 {
+    margin: 0;
+    font-size: clamp(26px, 4vw, 36px);
+    line-height: 1.05;
+    font-weight: 650;
+    letter-spacing: -.02em;
+  }
+  .mast .sub { margin-top: 4px; color: var(--ink-soft); font-size: 14px; }
+
+  .live {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 13px;
+    color: var(--ink-soft);
+  }
+  .dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--ink-mute);
+    flex: none;
+  }
+  .live[data-st="ok"] .dot { background: var(--ok); box-shadow: 0 0 0 3px var(--ok-wash); }
+  .live[data-st="loading"] .dot { background: var(--accent); box-shadow: 0 0 0 3px var(--accent-wash); }
+  .live[data-st="erro"] .dot { background: var(--bad); }
+
+  .btn {
+    border: 1px solid var(--line-strong);
+    background: var(--surface);
+    border-radius: var(--r);
+    padding: 6px 12px;
+    font-size: 13px;
+    cursor: pointer;
+  }
+  .btn:hover { border-color: var(--accent); color: var(--accent); }
+
+  /* ---------- controles ---------- */
+  .controls {
+    display: grid;
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+  .cargos {
+    display: flex;
+    gap: 6px;
+    overflow-x: auto;
+    scrollbar-width: none;
+    padding-bottom: 2px;
+  }
+  .cargos::-webkit-scrollbar { display: none; }
+  .cargos button {
+    flex: none;
+    border: 1px solid var(--line);
+    background: var(--surface);
+    border-radius: 999px;
+    padding: 7px 14px;
+    font-size: 14px;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  .cargos button[aria-pressed="true"] {
+    background: var(--ink);
+    border-color: var(--ink);
+    color: var(--surface);
+  }
+  .local {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+  .local label { display: grid; gap: 4px; min-width: 0; }
+  .local select {
+    width: 100%;
+    border: 1px solid var(--line-strong);
+    background: var(--surface);
+    border-radius: var(--r);
+    padding: 8px 10px;
+    font-size: 14px;
+  }
+  .local select:disabled { opacity: .55; }
+
+  /* ---------- painel de andamento ---------- */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    box-shadow: var(--shadow);
+  }
+  .andamento { padding: 18px 18px 16px; margin-bottom: 16px; }
+  .andamento .topo {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 8px 16px;
+    flex-wrap: wrap;
+  }
+  .pct-sec {
+    font-size: clamp(30px, 6vw, 42px);
+    font-weight: 650;
+    letter-spacing: -.02em;
+    line-height: 1;
+  }
+  .pct-sec small {
+    font-size: 14px;
+    font-weight: 400;
+    letter-spacing: 0;
+    color: var(--ink-soft);
+    margin-left: 6px;
+  }
+  .hora { font-size: 13px; color: var(--ink-soft); }
+  .prog {
+    height: 8px;
+    background: var(--track);
+    border-radius: 999px;
+    overflow: hidden;
+    margin: 12px 0 14px;
+  }
+  .prog i {
+    display: block;
+    height: 100%;
+    width: 0;
+    background: var(--accent);
+    border-radius: 999px;
+    transition: width .5s ease;
+  }
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+    gap: 10px 16px;
+    margin: 0;
+  }
+  .stats div { min-width: 0; }
+  .stats dt { font-size: 12px; color: var(--ink-mute); }
+  .stats dd { margin: 0; font-size: 15px; font-weight: 600; }
+  .stats dd span { font-weight: 400; color: var(--ink-soft); font-size: 13px; margin-left: 4px; }
+
+  /* ---------- resultado ---------- */
+  .resultado { padding: 6px 0 4px; }
+  .res-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 6px 16px;
+    flex-wrap: wrap;
+    padding: 12px 18px 10px;
+    border-bottom: 1px solid var(--line);
+  }
+  .res-head h2 { margin: 0; font-size: 17px; font-weight: 650; }
+  .res-head .nota { font-size: 13px; color: var(--ink-soft); }
+
+  .filtro { padding: 12px 18px 4px; }
+  .filtro input {
+    width: 100%;
+    border: 1px solid var(--line-strong);
+    background: var(--ground);
+    border-radius: var(--r);
+    padding: 8px 10px;
+    font-size: 14px;
+  }
+
+  ol.cands { list-style: none; margin: 0; padding: 0; }
+  .cand {
+    display: grid;
+    grid-template-columns: 22px 44px minmax(0, 1fr) 124px;
+    align-items: center;
+    gap: 4px 12px;
+    padding: 12px 18px;
+    border-bottom: 1px solid var(--line);
+  }
+  .cand:last-child { border-bottom: 0; }
+  .pos { font-size: 13px; color: var(--ink-mute); text-align: right; }
+  .foto {
+    width: 44px; height: 44px;
+    border-radius: 50%;
+    object-fit: cover;
+    background: var(--surface-2);
+    display: grid;
+    place-items: center;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--ink-soft);
+  }
+  .info { min-width: 0; }
+  .nome {
+    font-weight: 650;
+    font-size: 15.5px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .det {
+    font-size: 13px;
+    color: var(--ink-soft);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .chip {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: .02em;
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: var(--surface-2);
+    color: var(--ink-soft);
+  }
+  .chip.ok { background: var(--ok-wash); color: var(--ok); }
+  .chip.warn { background: var(--warn-wash); color: var(--warn); }
+  .track {
+    position: relative;
+    height: 6px;
+    background: var(--track);
+    border-radius: 999px;
+    margin-top: 7px;
+  }
+  .track i {
+    position: absolute;
+    left: 0; top: 0; bottom: 0;
+    background: var(--bar);
+    border-radius: 999px;
+  }
+  .track .m50 {
+    position: absolute;
+    left: 50%; top: -3px; bottom: -3px;
+    width: 2px;
+    margin-left: -1px;
+    background: var(--ink-mute);
+    opacity: .6;
+  }
+  .cand.destaque .track i { background: var(--accent); }
+  .num { text-align: right; }
+  .num strong { display: block; font-size: 18px; font-weight: 650; line-height: 1.15; }
+  .num span { font-size: 12.5px; color: var(--ink-soft); white-space: nowrap; }
+  .cand.anulado .nome, .cand.anulado .num strong { color: var(--ink-mute); }
+
+  .mais { padding: 12px 18px 16px; text-align: center; }
+  .vazio { padding: 28px 18px; text-align: center; color: var(--ink-soft); margin: 0; }
+
+  /* ---------- por estado ---------- */
+  .por-uf { margin-top: 16px; }
+  .tabela-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th, td { padding: 9px 12px; text-align: left; border-bottom: 1px solid var(--line); white-space: nowrap; }
+  th { font-size: 12px; font-weight: 500; color: var(--ink-mute); }
+  th:first-child, td:first-child { padding-left: 18px; }
+  td.r, th.r { text-align: right; }
+  tbody tr { cursor: pointer; }
+  tbody tr:hover { background: var(--surface-2); }
+  tbody tr:last-child td { border-bottom: 0; }
+  td .pct { color: var(--ink-soft); margin-left: 4px; }
+
+  footer {
+    margin-top: 28px;
+    font-size: 12.5px;
+    color: var(--ink-mute);
+    line-height: 1.6;
+  }
+  footer a { color: inherit; }
+
+  @media (max-width: 560px) {
+    .local { grid-template-columns: 1fr; }
+    .cand { grid-template-columns: 18px 38px minmax(0, 1fr) 100px; gap: 4px 10px; padding: 11px 14px; }
+    .foto { width: 38px; height: 38px; }
+    .num strong { font-size: 16px; }
+    .num span { font-size: 11.5px; }
+    .res-head, .filtro { padding-left: 14px; padding-right: 14px; }
+    .andamento { padding: 16px 14px 14px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header class="mast">
+    <div>
+      <h1>Apuração 2026</h1>
+      <div class="sub">Eleições gerais · 1º turno · 4 de outubro</div>
+    </div>
+    <div class="live" id="live" data-st="loading">
+      <span class="dot"></span>
+      <span id="liveText">Conectando ao TSE…</span>
+      <button class="btn" id="btnRefresh" type="button">Atualizar</button>
+    </div>
+  </header>
+
+  <section class="controls" aria-label="Filtros">
+    <div class="cargos" id="cargos" role="group" aria-label="Cargo"></div>
+    <div class="local">
+      <label><span class="label">Local</span><select id="uf"></select></label>
+      <label><span class="label">Município</span><select id="mun"><option value="">Todo o estado</option></select></label>
+    </div>
+  </section>
+
+  <section class="card andamento" aria-label="Andamento da apuração">
+    <div class="topo">
+      <div class="pct-sec"><span id="pctSec">—</span><small>das seções totalizadas</small></div>
+      <div class="hora" id="hora"></div>
+    </div>
+    <div class="prog"><i id="barSec"></i></div>
+    <dl class="stats" id="stats"></dl>
+  </section>
+
+  <section class="card resultado" aria-label="Resultado">
+    <div class="res-head">
+      <h2 id="resTitulo">Presidente · Brasil</h2>
+      <span class="nota" id="resNota"></span>
+    </div>
+    <div class="filtro" id="filtroBox" hidden>
+      <input id="busca" type="search" placeholder="Buscar por nome, número ou partido" autocomplete="off">
+    </div>
+    <ol class="cands" id="cands"></ol>
+    <p class="vazio" id="vazio" hidden></p>
+    <div class="mais" id="maisBox" hidden><button class="btn" id="btnMais" type="button">Mostrar mais</button></div>
+  </section>
+
+  <section class="card por-uf" id="porUfBox" hidden aria-label="Resultado por estado">
+    <div class="res-head">
+      <h2>Por estado</h2>
+      <button class="btn" id="btnPorUf" type="button">Carregar estados</button>
+    </div>
+    <div class="tabela-wrap" id="porUfWrap" hidden>
+      <table>
+        <thead><tr><th>Estado</th><th class="r">Apurado</th><th>1º colocado</th><th>2º colocado</th></tr></thead>
+        <tbody id="porUf"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <footer>
+    Dados oficiais de divulgação do TSE, lidos direto pelo seu navegador em
+    <a href="https://resultados.tse.jus.br" rel="noopener">resultados.tse.jus.br</a>.
+    Esta página não é do TSE e não guarda nada: cada atualização busca os números de novo na fonte.
+    Percentuais de candidatos são sobre os votos válidos; brancos e nulos, sobre o total de votos.
+  </footer>
+</div>
+
+<script>
+(() => {
+  "use strict";
+
+  const BASE = "https://resultados.tse.jus.br/oficial/ele2026";
+  const FEDERAL = "6257";
+  const ESTADUAL = "6259";
+  const REFRESH_S = 30;
+  const REFRESH_FIM_S = 120;
+  const LIMITE_INICIAL = 40;
+
+  const CARGOS = [
+    { id: "1", nome: "Presidente", ele: FEDERAL, nacional: true, segundoTurno: true },
+    { id: "3", nome: "Governador", ele: ESTADUAL, segundoTurno: true },
+    { id: "5", nome: "Senador", ele: ESTADUAL },
+    { id: "6", nome: "Dep. Federal", ele: ESTADUAL, prop: true },
+    { id: "7", nome: "Dep. Estadual", ele: ESTADUAL, prop: true }
+  ];
+
+  const UFS = [
+    ["ac", "Acre"], ["al", "Alagoas"], ["ap", "Amapá"], ["am", "Amazonas"], ["ba", "Bahia"],
+    ["ce", "Ceará"], ["df", "Distrito Federal"], ["es", "Espírito Santo"], ["go", "Goiás"],
+    ["ma", "Maranhão"], ["mt", "Mato Grosso"], ["ms", "Mato Grosso do Sul"], ["mg", "Minas Gerais"],
+    ["pa", "Pará"], ["pb", "Paraíba"], ["pr", "Paraná"], ["pe", "Pernambuco"], ["pi", "Piauí"],
+    ["rj", "Rio de Janeiro"], ["rn", "Rio Grande do Norte"], ["rs", "Rio Grande do Sul"],
+    ["ro", "Rondônia"], ["rr", "Roraima"], ["sc", "Santa Catarina"], ["sp", "São Paulo"],
+    ["se", "Sergipe"], ["to", "Tocantins"]
+  ];
+  const NOME_UF = Object.fromEntries(UFS);
+  NOME_UF.br = "Brasil";
+  NOME_UF.zz = "Exterior";
+
+  const $ = (id) => document.getElementById(id);
+  const el = {
+    live: $("live"), liveText: $("liveText"), btnRefresh: $("btnRefresh"),
+    cargos: $("cargos"), uf: $("uf"), mun: $("mun"),
+    pctSec: $("pctSec"), barSec: $("barSec"), hora: $("hora"), stats: $("stats"),
+    resTitulo: $("resTitulo"), resNota: $("resNota"),
+    filtroBox: $("filtroBox"), busca: $("busca"),
+    cands: $("cands"), vazio: $("vazio"), maisBox: $("maisBox"), btnMais: $("btnMais"),
+    porUfBox: $("porUfBox"), btnPorUf: $("btnPorUf"), porUfWrap: $("porUfWrap"), porUf: $("porUf")
+  };
+
+  const state = {
+    cargo: "1",
+    uf: "br",
+    mun: "",
+    ultimaUf: "sp",
+    busca: "",
+    limite: LIMITE_INICIAL,
+    data: null,
+    erro: null,
+    municipios: null,
+    porUfAberto: false,
+    proxima: 0,
+    carregando: false
+  };
+
+  // ---------- utilidades ----------
+
+  const fmtInt = new Intl.NumberFormat("pt-BR");
+  const int = (s) => Number(s) || 0;
+  const num = (s) => Number(String(s ?? "").replace(",", ".")) || 0;
+  const pctDe = (parte, total) => total ? (parte / total * 100).toFixed(2).replace(".", ",") + "%" : "—";
+  const pad = (s, n) => String(s).padStart(n, "0");
+  const semAcento = (s) => String(s).normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+
+  function esc(s) {
+    return String(s ?? "").replace(/[&<>"']/g, (c) => ({
+      "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+    })[c]);
+  }
+
+  function titulo(s) {
+    const minusculas = new Set(["da", "de", "do", "das", "dos", "e"]);
+    return String(s).toLowerCase().split(" ").map((p, i) =>
+      i > 0 && minusculas.has(p) ? p : p.charAt(0).toUpperCase() + p.slice(1)
+    ).join(" ");
+  }
+
+  const cargoDef = () => CARGOS.find((c) => c.id === state.cargo);
+
+  // Dep. Estadual vira Dep. Distrital no DF
+  function cargoCodigo() {
+    return state.cargo === "7" && state.uf === "df" ? "8" : state.cargo;
+  }
+
+  function nomeCargo() {
+    return cargoCodigo() === "8" ? "Dep. Distrital" : cargoDef().nome;
+  }
+
+  function urlDados(uf, mun, cargo, ele) {
+    return `${BASE}/${ele}/dados/${uf}/${uf}${mun || ""}-c${pad(cargo, 4)}-e${pad(ele, 6)}-u.json`;
+  }
+
+  function urlFoto(sq) {
+    const def = cargoDef();
+    const pasta = def.nacional ? "br" : state.uf;
+    return `${BASE}/${def.ele}/fotos/${pasta}/${encodeURIComponent(sq)}.jpeg`;
+  }
+
+  async function buscar(url) {
+    const ctrl = new AbortController();
+    const prazo = setTimeout(() => ctrl.abort(), 15000);
+    let r;
+    try {
+      r = await fetch(url, { cache: "no-cache", signal: ctrl.signal });
+    } finally {
+      clearTimeout(prazo);
+    }
+    if (!r.ok) {
+      const e = new Error("HTTP " + r.status);
+      e.status = r.status;
+      throw e;
+    }
+    return r.json();
+  }
+
+  // ---------- estado na URL, para compartilhar ----------
+
+  function lerHash() {
+    const p = new URLSearchParams(location.hash.slice(1));
+    const cargo = p.get("cargo");
+    if (cargo && CARGOS.some((c) => c.id === cargo)) state.cargo = cargo;
+    const uf = (p.get("uf") || "").toLowerCase();
+    if (uf && NOME_UF[uf]) state.uf = uf;
+    const mun = p.get("mun") || "";
+    state.mun = /^\d{5}$/.test(mun) ? mun : "";
+    normalizarLocal();
+  }
+
+  function gravarHash() {
+    const p = new URLSearchParams({ cargo: state.cargo, uf: state.uf });
+    if (state.mun) p.set("mun", state.mun);
+    history.replaceState(null, "", "#" + p.toString());
+  }
+
+  // Só Presidente tem Brasil e Exterior; os outros cargos são por estado
+  function normalizarLocal() {
+    if (!cargoDef().nacional && (state.uf === "br" || state.uf === "zz")) {
+      state.uf = state.ultimaUf;
+      state.mun = "";
+    }
+    if (state.uf === "br") state.mun = "";
+    if (state.uf !== "br" && state.uf !== "zz") state.ultimaUf = state.uf;
+  }
+
+  function chave() {
+    return [state.cargo, state.uf, state.mun].join("|");
+  }
+
+  // ---------- controles ----------
+
+  function montarCargos() {
+    el.cargos.innerHTML = CARGOS.map((c) =>
+      `<button type="button" data-cargo="${c.id}" aria-pressed="${c.id === state.cargo}">${esc(c.id === "7" && state.uf === "df" ? "Dep. Distrital" : c.nome)}</button>`
+    ).join("");
+  }
+
+  function montarUfs() {
+    const nacional = cargoDef().nacional;
+    let html = "";
+    if (nacional) html += `<option value="br">Brasil</option>`;
+    html += UFS.map(([cd, nm]) => `<option value="${cd}">${esc(nm)}</option>`).join("");
+    if (nacional) html += `<option value="zz">Exterior</option>`;
+    el.uf.innerHTML = html;
+    el.uf.value = state.uf;
+  }
+
+  function montarMunicipios() {
+    const lista = state.municipios && state.municipios[state.uf];
+    el.mun.disabled = state.uf === "br" || !lista;
+    const rotulo = state.uf === "zz" ? "Todas as cidades" : state.uf === "br" ? "—" : "Todo o estado";
+    let html = `<option value="">${rotulo}</option>`;
+    if (lista) html += lista.map((m) => `<option value="${m.cd}">${esc(m.nm)}</option>`).join("");
+    // link compartilhado com município chega antes da lista de nomes
+    else if (state.mun) html += `<option value="${esc(state.mun)}">Município ${esc(state.mun)}</option>`;
+    el.mun.innerHTML = html;
+    el.mun.value = state.mun;
+    if (lista && el.mun.value !== state.mun) state.mun = "";
+  }
+
+  async function carregarMunicipios() {
+    if (state.municipios) return;
+    try {
+      const d = await buscar(`${BASE}/${FEDERAL}/config/mun-e${pad(FEDERAL, 6)}-cm.json`);
+      const porUf = {};
+      for (const a of d.abr || []) {
+        porUf[a.cd] = (a.mu || [])
+          .map((m) => ({ cd: m.cd, nm: titulo(m.nm) }))
+          .sort((x, y) => x.nm.localeCompare(y.nm, "pt-BR"));
+      }
+      state.municipios = porUf;
+      const antes = state.mun;
+      montarMunicipios();
+      if (antes && !state.mun) aplicarSelecao();
+      else renderTitulo();
+    } catch (_) {
+      // sem a lista, o seletor de município fica desabilitado; o resto segue
+    }
+  }
+
+  function aplicarSelecao() {
+    state.busca = "";
+    el.busca.value = "";
+    state.limite = LIMITE_INICIAL;
+    state.data = null;
+    state.erro = null;
+    normalizarLocal();
+    montarCargos();
+    montarUfs();
+    montarMunicipios();
+    gravarHash();
+    render();
+    atualizar();
+  }
+
+  el.cargos.addEventListener("click", (e) => {
+    const b = e.target.closest("button[data-cargo]");
+    if (!b || b.dataset.cargo === state.cargo) return;
+    state.cargo = b.dataset.cargo;
+    aplicarSelecao();
+  });
+
+  el.uf.addEventListener("change", () => {
+    state.uf = el.uf.value;
+    state.mun = "";
+    aplicarSelecao();
+  });
+
+  el.mun.addEventListener("change", () => {
+    state.mun = el.mun.value;
+    aplicarSelecao();
+  });
+
+  el.busca.addEventListener("input", () => {
+    state.busca = el.busca.value;
+    state.limite = LIMITE_INICIAL;
+    renderCandidatos();
+  });
+
+  el.btnMais.addEventListener("click", () => {
+    state.limite += 60;
+    renderCandidatos();
+  });
+
+  el.btnRefresh.addEventListener("click", () => atualizar());
+
+  // foto que não existe vira iniciais
+  el.cands.addEventListener("error", (e) => {
+    const img = e.target;
+    if (img.tagName !== "IMG") return;
+    const span = document.createElement("span");
+    span.className = "foto";
+    span.textContent = img.dataset.ini || "";
+    span.setAttribute("aria-hidden", "true");
+    img.replaceWith(span);
+  }, true);
+
+  // ---------- leitura dos dados ----------
+
+  function candidatos(d) {
+    const c = d.carg && d.carg[0];
+    if (!c) return [];
+    const fed = Object.fromEntries((c.fed || []).map((f) => [f.n, f.sg]));
+    const lista = [];
+    for (const a of c.agr || []) {
+      for (const p of a.par || []) {
+        for (const k of p.cand || []) {
+          const vices = (k.vs || []).map((v) => titulo(v.nmu || v.nm));
+          lista.push({
+            n: k.n,
+            sq: k.sqcand,
+            nome: k.nmu || k.nm,
+            completo: k.nm,
+            partido: p.sg,
+            federacao: p.nfed && fed[p.nfed] ? fed[p.nfed] : "",
+            coligacao: a.tp === "c" ? a.nm : "",
+            vices,
+            tipoVice: (k.vs && k.vs[0] && k.vs[0].tp) || "",
+            votos: int(k.vap),
+            pct: k.pvap || "0,00",
+            pctN: num(k.pvapn),
+            valido: String(k.dvt || "").startsWith("Válido"),
+            dvt: k.dvt || "",
+            eleito: k.e === "s",
+            st: k.st || "",
+            seq: int(k.seq)
+          });
+        }
+      }
+    }
+    lista.sort((x, y) => y.votos - x.votos || x.seq - y.seq);
+    lista.forEach((c, i) => { c.pos = i + 1; });
+    return lista;
+  }
+
+  function vagas(d) {
+    return int(d.carg && d.carg[0] && d.carg[0].nv) || 1;
+  }
+
+  // ---------- render ----------
+
+  function render() {
+    renderAndamento();
+    renderTitulo();
+    renderCandidatos();
+    el.porUfBox.hidden = !(state.cargo === "1" && state.uf === "br");
+  }
+
+  function renderAndamento() {
+    const d = state.data;
+    if (!d || !d.s) {
+      el.pctSec.textContent = "—";
+      el.barSec.style.width = "0";
+      el.hora.textContent = "";
+      el.stats.innerHTML = "";
+      return;
+    }
+    const s = d.s, e = d.e || {}, v = d.v || {};
+    el.pctSec.textContent = (s.pst || "0,00") + "%";
+    el.barSec.style.width = Math.min(100, num(s.pstn || s.pst)) + "%";
+    el.hora.textContent =
+      `${fmtInt.format(int(s.st))} de ${fmtInt.format(int(s.ts))} seções` +
+      (d.ht ? ` · totalizado às ${d.ht}` : "");
+
+    const tv = int(v.tv);
+    const itens = [
+      ["Comparecimento", int(e.c), e.pc ? e.pc + "%" : ""],
+      ["Abstenção", int(e.a), e.pa ? e.pa + "%" : ""],
+      ["Válidos", int(v.vv), pctDe(int(v.vv), tv)],
+      ["Brancos", int(v.vb), pctDe(int(v.vb), tv)],
+      ["Nulos", int(v.tvn), pctDe(int(v.tvn), tv)]
+    ];
+    if (cargoDef().prop && v.vl !== undefined) {
+      itens.push(["Legenda", int(v.vl), pctDe(int(v.vl), int(v.vv))]);
+    }
+    el.stats.innerHTML = itens.map(([rot, n, p]) =>
+      `<div><dt>${esc(rot)}</dt><dd>${fmtInt.format(n)}${p ? `<span>${esc(p)}</span>` : ""}</dd></div>`
+    ).join("");
+  }
+
+  function nomeLocal() {
+    if (state.mun && state.municipios) {
+      const m = (state.municipios[state.uf] || []).find((x) => x.cd === state.mun);
+      if (m) return `${m.nm} (${state.uf.toUpperCase()})`;
+    }
+    return NOME_UF[state.uf] || state.uf.toUpperCase();
+  }
+
+  function renderTitulo() {
+    el.resTitulo.textContent = `${nomeCargo()} · ${nomeLocal()}`;
+    const d = state.data;
+    const nv = d ? vagas(d) : 0;
+    let nota = "";
+    if (d && nv > 1) nota = `${nv} vagas`;
+    if (d && cargoDef().segundoTurno) nota = "Precisa de mais de 50% dos válidos para vencer no 1º turno";
+    el.resNota.textContent = nota;
+  }
+
+  function linhaDetalhe(c) {
+    const partes = [c.n, c.partido];
+    if (c.federacao && c.federacao !== c.partido) partes[1] += ` (${c.federacao})`;
+    if (c.vices.length) {
+      const rot = c.tipoVice === "v" ? "Vice" : "Suplentes";
+      partes.push(`${rot}: ${c.vices.join(", ")}`);
+    }
+    return partes.join(" · ");
+  }
+
+  function chipStatus(c) {
+    if (!c.valido) return `<span class="chip warn">${esc(c.dvt)}</span>`;
+    if (c.st) {
+      const st = c.st.toLowerCase();
+      const cls = st.startsWith("eleito") ? "ok" : st.includes("turno") ? "warn" : "";
+      return `<span class="chip ${cls}">${esc(c.st)}</span>`;
+    }
+    if (c.eleito) return `<span class="chip ok">Eleito</span>`;
+    return "";
+  }
+
+  function iniciais(nome) {
+    return String(nome).split(/\s+/).filter(Boolean).slice(0, 2).map((p) => p[0]).join("");
+  }
+
+  function renderCandidatos() {
+    const d = state.data;
+    const def = cargoDef();
+
+    if (!d) {
+      el.cands.innerHTML = "";
+      el.filtroBox.hidden = true;
+      el.maisBox.hidden = true;
+      el.vazio.hidden = false;
+      el.vazio.textContent =
+        state.erro === "sem-dados" ? "O TSE ainda não divulgou resultado para este cargo e local." :
+        state.erro === "falha" ? "Não foi possível ler os dados do TSE. Tentando de novo em instantes." :
+        "Carregando resultado…";
+      return;
+    }
+
+    const todos = candidatos(d);
+    const nv = vagas(d);
+    const lider = todos[0] ? todos[0].votos : 0;
+
+    el.filtroBox.hidden = todos.length <= 15;
+    const termo = semAcento(state.busca.trim());
+    const filtrados = termo
+      ? todos.filter((c) =>
+          semAcento(c.nome).includes(termo) || semAcento(c.completo).includes(termo) ||
+          c.n.startsWith(termo) || semAcento(c.partido).includes(termo))
+      : todos;
+    const visiveis = filtrados.slice(0, state.limite);
+
+    el.vazio.hidden = filtrados.length > 0;
+    if (!filtrados.length) {
+      el.vazio.textContent = todos.length ? "Nenhum candidato encontrado." : "Sem candidatos neste resultado.";
+    }
+
+    el.cands.innerHTML = visiveis.map((c) => {
+      // majoritários: barra é a fatia dos válidos; proporcionais: relativa ao mais votado
+      const largura = def.prop
+        ? (lider ? c.votos / lider * 100 : 0)
+        : Math.min(100, c.pctN);
+      const destaque = !def.prop && c.valido && c.pos <= nv && c.votos > 0;
+      const classes = ["cand", destaque ? "destaque" : "", c.valido ? "" : "anulado"].join(" ").trim();
+      const ini = iniciais(c.nome);
+      return `<li class="${classes}">
+        <span class="pos">${c.pos}</span>
+        <img class="foto" src="${esc(urlFoto(c.sq))}" alt="" loading="lazy" data-ini="${esc(ini)}">
+        <div class="info">
+          <div class="nome">${esc(c.nome)} ${chipStatus(c)}</div>
+          <div class="det" title="${esc(c.coligacao || c.completo)}">${esc(linhaDetalhe(c))}</div>
+          <div class="track"><i style="width:${largura.toFixed(2)}%"></i>${def.segundoTurno ? '<b class="m50" title="50% dos válidos"></b>' : ""}</div>
+        </div>
+        <div class="num"><strong>${esc(c.pct)}%</strong><span>${fmtInt.format(c.votos)} votos</span></div>
+      </li>`;
+    }).join("");
+
+    el.maisBox.hidden = filtrados.length <= visiveis.length;
+    el.btnMais.textContent = `Mostrar mais (${fmtInt.format(filtrados.length - visiveis.length)} restantes)`;
+  }
+
+  // ---------- por estado (Presidente) ----------
+
+  async function atualizarPorUf() {
+    const ufs = UFS.map(([cd]) => cd).concat("zz");
+    const res = await Promise.allSettled(ufs.map((uf) => buscar(urlDados(uf, "", "1", FEDERAL))));
+    if (!(state.cargo === "1" && state.uf === "br")) return;
+    el.porUf.innerHTML = res.map((r, i) => {
+      const uf = ufs[i];
+      if (r.status !== "fulfilled") {
+        return `<tr data-uf="${uf}"><td>${esc(NOME_UF[uf])}</td><td class="r">—</td><td colspan="2">sem dados</td></tr>`;
+      }
+      const d = r.value;
+      const [a, b] = candidatos(d);
+      const cel = (c) => c ? `${esc(c.nome)}<span class="pct">${esc(c.pct)}%</span>` : "—";
+      return `<tr data-uf="${uf}"><td>${esc(NOME_UF[uf])}</td><td class="r">${esc((d.s && d.s.pst) || "0,00")}%</td><td>${cel(a)}</td><td>${cel(b)}</td></tr>`;
+    }).join("");
+    el.porUfWrap.hidden = false;
+  }
+
+  el.btnPorUf.addEventListener("click", async () => {
+    state.porUfAberto = !state.porUfAberto;
+    if (!state.porUfAberto) {
+      el.porUfWrap.hidden = true;
+      el.btnPorUf.textContent = "Carregar estados";
+      return;
+    }
+    el.btnPorUf.textContent = "Carregando…";
+    el.btnPorUf.disabled = true;
+    await atualizarPorUf();
+    el.btnPorUf.disabled = false;
+    el.btnPorUf.textContent = "Ocultar";
+  });
+
+  el.porUf.addEventListener("click", (e) => {
+    const tr = e.target.closest("tr[data-uf]");
+    if (!tr) return;
+    state.uf = tr.dataset.uf;
+    state.mun = "";
+    aplicarSelecao();
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  });
+
+  // ---------- ciclo de atualização ----------
+
+  function intervalo() {
+    const d = state.data;
+    return d && d.s && num(d.s.pstn || d.s.pst) >= 100 ? REFRESH_FIM_S : REFRESH_S;
+  }
+
+  function setLive(st, texto) {
+    el.live.dataset.st = st;
+    el.liveText.textContent = texto;
+  }
+
+  function mostrarContagem() {
+    if (state.carregando) return;
+    const resta = Math.max(0, Math.ceil((state.proxima - Date.now()) / 1000));
+    if (state.erro === "falha" || state.erro === "falha-parcial") {
+      setLive("erro", `Sem resposta do TSE · nova tentativa em ${resta}s`);
+    } else {
+      setLive("ok", `Ao vivo · atualiza em ${resta}s`);
+    }
+  }
+
+  async function atualizar() {
+    const alvo = chave();
+    state.carregando = true;
+    setLive("loading", "Atualizando…");
+    const def = cargoDef();
+    try {
+      const d = await buscar(urlDados(state.uf, state.mun, cargoCodigo(), def.ele));
+      if (alvo !== chave()) return;
+      state.data = d;
+      state.erro = null;
+    } catch (e) {
+      if (alvo !== chave()) return;
+      if (e.status === 404 || e.status === 403) {
+        state.data = null;
+        state.erro = "sem-dados";
+      } else {
+        state.erro = state.data ? "falha-parcial" : "falha";
+      }
+    } finally {
+      if (alvo === chave()) {
+        state.carregando = false;
+        state.proxima = Date.now() + intervalo() * 1000;
+        render();
+        mostrarContagem();
+      }
+    }
+    if (state.porUfAberto && state.cargo === "1" && state.uf === "br") atualizarPorUf();
+  }
+
+  setInterval(() => {
+    if (document.hidden || state.carregando) return;
+    if (Date.now() >= state.proxima) atualizar();
+    else mostrarContagem();
+  }, 1000);
+
+  document.addEventListener("visibilitychange", () => {
+    if (!document.hidden && !state.carregando && Date.now() >= state.proxima) atualizar();
+  });
+
+  window.addEventListener("hashchange", () => {
+    const antes = chave();
+    lerHash();
+    if (chave() !== antes) aplicarSelecao();
+  });
+
+  // ---------- início ----------
+
+  lerHash();
+  montarCargos();
+  montarUfs();
+  montarMunicipios();
+  gravarHash();
+  render();
+  atualizar();
+  if (state.mun) carregarMunicipios();
+  else setTimeout(carregarMunicipios, 1500);
+})();
+</script>
+</body>
+</html>

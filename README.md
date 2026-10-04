@@ -54,3 +54,51 @@ Para rodar o teste de fluxo em Chromium:
 ```
 node test/smoke.mjs
 ```
+
+---
+
+# Apuração 2026
+
+Painel ao vivo da apuração das Eleições 2026 (1º turno, 4 de outubro), lendo
+direto os arquivos de divulgação do TSE em `resultados.tse.jus.br`.
+
+Arquivo único, sem dependências: `apuracao-2026.html`. Não há servidor nem banco:
+cada navegador busca os números na fonte, a cada 30 segundos (a cada 2 minutos
+depois que a apuração chega a 100%).
+
+## O que mostra
+
+- **Cargos:** Presidente, Governador, Senador, Deputado Federal e Deputado
+  Estadual (Distrital, no DF).
+- **Local:** Brasil, cada estado, Exterior (só Presidente) e qualquer município.
+- **Andamento:** % de seções totalizadas, horário da última totalização,
+  comparecimento, abstenção, válidos, brancos, nulos e votos de legenda.
+- **Candidatos:** ordenados por votos, com foto, número, partido, vice ou
+  suplentes, % dos válidos e a situação que o TSE divulgar (eleito, 2º turno…).
+  Presidente e Governador têm a marca dos 50%; Senador destaca as vagas em jogo.
+- **Por estado:** com Presidente · Brasil, uma tabela com o 1º e o 2º colocado e
+  o andamento em cada estado. Clicar na linha abre o estado.
+
+A seleção fica no endereço (`#cargo=3&uf=sp&mun=71072`), então dá para mandar o
+link de um recorte específico.
+
+## Como publicar
+
+O TSE libera os arquivos para leitura a partir de qualquer site, então qualquer
+hospedagem estática serve. Com GitHub Pages: *Settings → Pages → Deploy from a
+branch*, escolha o branch e a pasta raiz. O painel fica em
+`https://<usuário>.github.io/<repositório>/apuracao-2026.html`.
+
+Também funciona abrindo o arquivo direto no navegador do computador.
+
+Não funciona como artifact do Claude: artifacts bloqueiam rede externa, e a
+página precisa falar com o TSE.
+
+## Desenvolvimento
+
+O teste de fluxo serve recortes reais da divulgação (`test/fixtures`) no lugar
+do TSE, então roda sem rede:
+
+```
+node test/apuracao.mjs
+```
