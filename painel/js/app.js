@@ -597,8 +597,13 @@ async function prepararCidade() {
   pintarLocais();
 }
 
-// candidato de referência para tabela, tooltips e locais: o escolhido ou o líder
-const alvoN = () => st.cand || (st.resumoUF && st.resumoUF.cands[0] && st.resumoUF.cands[0].n) || "";
+// candidato de referência para tabela, tooltips e locais: o escolhido ou o líder do recorte (zona, cidade ou estado)
+const alvoN = () => {
+  if (st.cand) return st.cand;
+  const rr = resultadoRecorte();
+  const lider = (rr && rr.cands[0]) || (st.resumoUF && st.resumoUF.cands[0]);
+  return lider ? lider.n : "";
+};
 
 // ---------- mapa ----------
 
