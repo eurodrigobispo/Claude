@@ -33,9 +33,13 @@ const isoDe = (dt) => String(dt || "").split("/").reverse().join("-");
  * Devolve { pleito, federal, estadual, turno, data }; se o índice não
  * responder, mantém os códigos do 1º turno.
  */
+// Com window.PAINEL_CONFIG.tseLocal (ex.: "dados/tse/"), o índice de eleições
+// e a lista de municípios vêm de cópias locais (painel sem acesso ao TSE).
+const tseLocal = () => globalThis.PAINEL_CONFIG && globalThis.PAINEL_CONFIG.tseLocal;
+
 export async function configurar({ turno } = {}) {
   try {
-    const d = await json(`${RAIZ}/comum/config/ele-c.json`);
+    const d = await json(tseLocal() ? `${tseLocal()}ele-c.json` : `${RAIZ}/comum/config/ele-c.json`);
     const opcoes = [];
     for (const p of d.pl || []) {
       if (p.c !== "ele2026") continue;
@@ -285,7 +289,8 @@ export const geracao = (r) => { const [d, h] = String(r.gerado || "").split(" ")
 // Lista de municípios: { uf: [{cd, ibge, nome, zonas, capital}] }
 export async function municipios() {
   // no começo do 2º turno o TSE pode ainda não ter a lista nova; a do 1º serve
-  const d = await json(url.municipios(FEDERAL), { validade: 36e5 }).catch(() => json(url.municipios("6257"), { validade: 36e5 }));
+  const d = tseLocal() ? await json(`${tseLocal()}mun-e006257-cm.json`, { validade: 36e5 })
+    : await json(url.municipios(FEDERAL), { validade: 36e5 }).catch(() => json(url.municipios("6257"), { validade: 36e5 }));
   const out = {};
   for (const a of d.abr || []) {
     out[a.cd] = (a.mu || []).map((m) => ({

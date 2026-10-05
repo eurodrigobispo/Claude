@@ -4,7 +4,11 @@
 const IBGE = "https://servicodados.ibge.gov.br/api/v3/malhas";
 const cache = new Map();
 
+// Com window.PAINEL_CONFIG.malhas (ex.: "dados/malhas/"), as malhas vêm de
+// arquivos locais: estados.json, municipios-br.json e uf/<código IBGE>.json.
 export function urlMalha(nivel, ibgeUf) {
+  const local = globalThis.PAINEL_CONFIG && globalThis.PAINEL_CONFIG.malhas;
+  if (local) return local + (nivel === "estados" ? "estados.json" : nivel === "municipios-br" ? "municipios-br.json" : `uf/${ibgeUf}.json`);
   const q = "formato=application/json&qualidade=minima";
   if (nivel === "estados") return `${IBGE}/paises/BR?intrarregiao=UF&${q}`;
   if (nivel === "municipios-br") return `${IBGE}/paises/BR?intrarregiao=municipio&${q}`;

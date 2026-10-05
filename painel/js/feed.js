@@ -26,7 +26,8 @@ async function pedir(u, prazo = 12000) {
 // Procura o feed e devolve o agora.json, ou null se não houver coletor.
 export async function detectar() {
   const pedido = new URLSearchParams(location.search).get("feed");
-  const opcoes = pedido ? [pedido] : ["../feed/"];
+  const configurado = globalThis.PAINEL_CONFIG && globalThis.PAINEL_CONFIG.feed;
+  const opcoes = pedido ? [pedido] : configurado ? [configurado] : ["../feed/"];
   for (const o of opcoes) {
     try {
       const u = new URL(o.endsWith("/") ? o : o + "/", location.href);

@@ -7,6 +7,11 @@ import { Delaunay } from "./vendor/d3-delaunay.js";
 import { corPartido, corTexto, corMargem, rampaMargem, rampaCandidato, quebrasCandidato, classeCandidato, misturar, AGUARDANDO, TERRA } from "./cores.js";
 
 const BASE_W = 1600, BASE_H = 900;
+
+// Página publicada como retrato (sem TSE ao vivo): window.PAINEL_CONFIG.estatico
+const estatico = () => !!(globalThis.PAINEL_CONFIG && globalThis.PAINEL_CONFIG.estatico);
+// no celular as seções empilham e a página rola
+const celular = () => innerWidth < 900;
 const REFRESH_S = 60;
 const REFRESH_CIDADE_S = 180;
 const LIMITE_SECOES = 3000;
@@ -216,15 +221,25 @@ async function carregarHistorico() {
 // Desenhado numa tela lógica de 1600×900; em monitores maiores tudo cresce
 // junto com zoom, abaixo disso fica 1:1.
 function ajustarEscala() {
+  const hud = $("#hud");
+  if (celular()) {
+    st.escala = 1;
+    hud.style.zoom = hud.style.width = hud.style.height = "";
+    return;
+  }
   const z = Math.min(3, Math.max(1, Math.min(innerWidth / BASE_W, innerHeight / BASE_H)));
   st.escala = z;
-  const hud = $("#hud");
   hud.style.zoom = z;
   hud.style.width = innerWidth / z + "px";
   hud.style.height = innerHeight / z + "px";
 }
 
 function dims() {
+  if (celular()) {
+    const r = $("#mapaSvg").getBoundingClientRect();
+    const w = Math.max(200, r.width), h = Math.max(200, r.height);
+    return { w, h, area: [8, 8, w - 8, h - 8] };
+  }
   const hud = $("#hud");
   const w = hud.clientWidth, h = hud.clientHeight;
   const css = getComputedStyle(hud);
@@ -241,7 +256,7 @@ function lerHash() {
   const p = new URLSearchParams(location.hash.slice(1));
   const out = {};
   const cargo = p.get("cargo");
-  if (cargo && tse.cargosDoTurno().some((c) => c.id === cargo)) out.cargo = cargo;
+  if (cargo && cargosDisponiveis().some((c) => c.id === cargo)) out.cargo = cargo;
   const uf = (p.get("uf") || "").toLowerCase();
   if (tse.NOME_UF[uf]) out.uf = uf;
   out.mun = /^\d{5}$/.test(p.get("mun") || "") ? p.get("mun") : "";
@@ -255,11 +270,13 @@ function gravarHash() {
   if (st.mun) p.set("mun", st.mun);
   if (st.zona) p.set("zona", st.zona);
   if (st.cand) p.set("cand", st.cand);
-  history.replaceState(null, "", "#" + p.toString());
+  try { history.replaceState(null, "", "#" + p.toString()); } catch (_) { /* moldura sem histórico */ }
 }
 
+const cargosDisponiveis = () => tse.cargosDoTurno().filter((c) => !estatico() || ["1", "3", "5"].includes(c.id));
+
 function normalizar() {
-  if (!tse.cargosDoTurno().some((c) => c.id === st.cargo)) st.cargo = "1";
+  if (!cargosDisponiveis().some((c) => c.id === st.cargo)) st.cargo = "1";
   if (!cargoDef().nacional && st.uf === "zz") st.uf = temVisaoBrasil() ? "br" : "sp";
   if (!temVisaoBrasil() && st.uf === "br") st.uf = "sp";
   if (st.uf === "br") st.mun = "";
@@ -484,6 +501,11 @@ async function carregarTodosMunicipios(ger, signal, soMudados = false) {
 async function abrirCidade(ger, mun) {
   // com coletor, as zonas já vêm somadas (inclusive de cidades grandes)
   if (feed.ativo() && await zonasDoFeed(ger, mun)) return;
+  if (estatico()) {
+    st.cidade = { cd: mun, erro: "Neste retrato da noite, zonas e locais de votação estão disponíveis para as 27 capitais." };
+    renderTudo();
+    return;
+  }
   let zonas;
   try {
     zonas = (await secoesUF(st.uf))[mun];
@@ -1035,7 +1057,7 @@ function renderTudo() {
 }
 
 function renderControles() {
-  $("#cargos").innerHTML = tse.cargosDoTurno().map((c) =>
+  $("#cargos").innerHTML = cargosDisponiveis().map((c) =>
     `<button type="button" data-cargo="${c.id}" aria-pressed="${c.id === st.cargo}">${esc(c.id === "7" && st.uf === "df" ? "Dep. Distrital" : c.curto)}</button>`
   ).join("");
   const nacional = cargoDef().nacional;
@@ -1631,9 +1653,19 @@ function tooltipLocal(chave) {
 
 async function construirIndice() {
   if (st.indice) return st.indice;
-  const pedidos = [{ cargo: "1", uf: "br" }];
-  for (const [uf] of tse.UFS) for (const cargo of ["3", "5", "6", "7"]) pedidos.push({ cargo, uf });
   const itens = [];
+  // com coletor, os candidatos majoritários já estão no feed
+  const doFeed = feed.ativo() && st.agora ? Object.keys(st.candFeed) : [];
+  for (const k of doFeed) {
+    const [cargo, uf] = k.split("-");
+    if (uf === "zz" || (cargo === "1" && uf !== "br")) continue;
+    const r = resultadoDoFeed(cargo, uf);
+    if (r) for (const c of r.cands) itens.push({ ...c, cargo, uf, chave: semAcento(`${c.nome} ${c.completo} ${c.partido}`) });
+  }
+  const pedidos = [];
+  if (!doFeed.length) pedidos.push({ cargo: "1", uf: "br" });
+  const cargosTse = (doFeed.length ? ["6", "7"] : ["3", "5", "6", "7"]).filter((c) => cargosDisponiveis().some((x) => x.id === c));
+  for (const [uf] of tse.UFS) for (const cargo of cargosTse) pedidos.push({ cargo, uf });
   st.indice = { itens, pronto: false, feitos: 0, total: pedidos.length };
   await tse.fila(pedidos, async ({ cargo, uf }) => {
     const r = tse.lerResultado(await tse.json(tse.url.resultado(cargo, uf)));
@@ -1687,7 +1719,7 @@ const titulo = tse.titulo;
 // ---------- ciclo ao vivo ----------
 
 function agendar() {
-  st.proxima = Date.now() + (feed.ativo() ? 15 : REFRESH_S) * 1000;
+  st.proxima = estatico() ? Infinity : Date.now() + (feed.ativo() ? 15 : REFRESH_S) * 1000;
 }
 
 async function atualizarAoVivo() {
@@ -1758,6 +1790,10 @@ setInterval(() => {
   $("#liveTxt").textContent = estado === "erro" ? `Sem resposta do TSE · nova tentativa em ${resta}s`
     : estado === "carregando" ? "Atualizando…"
     : r ? `${r.hora.slice(0, 5).replace(":", "h")} · ${pctTxt(Math.floor(r.secoes.pct * 10) / 10)}` : "Ao vivo";
+  if (estatico()) {
+    $("#live").dataset.st = "retrato";
+    $(".live .lw").textContent = "Retrato das ";
+  }
   $("#live").title = `${feed.ativo() ? "Dados do coletor" : "Leitura direta do TSE"} · próxima em ${resta}s`;
   if (st.proxima && Date.now() >= st.proxima && estado !== "carregando") atualizarAoVivo();
 }, 1000);
@@ -1957,12 +1993,14 @@ function ligarEventos() {
 
 async function compartilhar() {
   const dados = { title: document.title, text: `${nomeCargo()} · ${nomeRecorte().join(" · ")}`, url: location.href };
+  if (navigator.share) {
+    try { await navigator.share(dados); return; } catch (e) { if (e && e.name === "AbortError") return; }
+  }
   try {
-    if (navigator.share) { await navigator.share(dados); return; }
     await navigator.clipboard.writeText(location.href);
     avisar("Link copiado.");
-  } catch (e) {
-    if (e && e.name !== "AbortError") avisar("Não foi possível copiar o link.");
+  } catch (_) {
+    avisar("Não foi possível copiar o link. Copie o endereço da barra do navegador.");
   }
 }
 
@@ -2000,7 +2038,7 @@ function irParaArea(id) {
 
 async function iniciar() {
   await tse.configurar({ turno: new URLSearchParams(location.search).get("turno") });
-  $(".marca span").textContent = `${tse.TURNO}º turno · análise da apuração`;
+  $(".marca span").textContent = `${tse.TURNO}º turno · ${estatico() ? "retrato da apuração" : "análise da apuração"}`;
   try {
     if (localStorage.getItem("painel.gaveta") === "fechada") $("#hud").classList.add("fechada");
   } catch (_) { /* sem armazenamento */ }
