@@ -88,6 +88,17 @@ nos últimos 2 minutos, 503 se não. Serve para o Docker ou um monitor externo.
   - eleitos e disputas que vão ao 2º turno;
   - disputas que chegam a 100%.
 
+## Conferir o feed contra o TSE
+
+```
+NODE_USE_ENV_PROXY=1 node scripts/auditar-feed.mjs feed/
+```
+
+Relê os arquivos brutos do TSE e confere o placar de cada disputa, a soma dos
+municípios de cada UF e a soma dos boletins de cada capital. Com a apuração
+encerrada, tudo deve bater; durante a noite, o feed pode estar um ciclo atrás.
+Termina com código 1 se houver divergência.
+
 ## Publicar num servidor
 
 Qualquer máquina com Node 22 serve. Com Docker:
