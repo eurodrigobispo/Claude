@@ -119,27 +119,36 @@ export function municipios2022(hist, cargo, turno = "t1") {
   return { cand: b.cand, mun: out };
 }
 
+// Partidos de 2022 que mudaram de nome ou se fundiram até 2026. O número sozinho
+// não basta: o 14 do PTB, por exemplo, hoje é do MISSÃO, que não o sucede.
+const SUCESSOR = { PMN: "MOBILIZA", PMB: "DEMOCRATA", PSC: "PODE", PTB: "PRD", PATRIOTA: "PRD", PROS: "SOLIDARIEDADE" };
+
 /**
- * Escolhe a referência de 2022 para um candidato de 2026: o mesmo número no
- * mesmo cargo (para majoritários o número é o do partido) ou, se não houver,
- * o candidato de 2022 do mesmo partido com mais votos.
+ * Escolhe a referência de 2022 para um candidato de 2026, sempre do mesmo
+ * partido: o mesmo número no mesmo cargo (nos majoritários, o do partido) ou o
+ * candidato do partido com mais votos; só sem nenhum dos dois, o partido que
+ * ele sucedeu (com o mesmo número ou o mais votado).
  */
 export function referencia2022(cand, base) {
   if (!base) return null;
-  if (base.cand[cand.n]) return { n: cand.n, nome: titulo(base.cand[cand.n][0]), partido: base.cand[cand.n][1], criterio: "mesmo número" };
-  const doPartido = Object.entries(base.cand).filter(([n, [, sg]]) => sg === cand.partido || n.slice(0, 2) === String(cand.npartido || cand.n).slice(0, 2));
-  if (!doPartido.length) return null;
   const tot = (n) => Object.values(base.mun).reduce((s, m) => s + (m.votos[n] || 0), 0);
-  doPartido.sort((a, b) => tot(b[0]) - tot(a[0]));
-  const [n, [nome, partido]] = doPartido[0];
-  return { n, nome: titulo(nome), partido, criterio: "mesmo partido" };
+  const escolher = (filtro, regra) => {
+    const igual = base.cand[cand.n];
+    if (igual && filtro(igual[1])) return { n: cand.n, nome: titulo(igual[0]), partido: igual[1], criterio: regra(igual[1], "mesmo número") };
+    const lista = Object.entries(base.cand).filter(([, [, sg]]) => filtro(sg)).sort((a, b) => tot(b[0]) - tot(a[0]));
+    if (!lista.length) return null;
+    const [n, [nome, partido]] = lista[0];
+    return { n, nome: titulo(nome), partido, criterio: regra(partido, "mesmo partido") };
+  };
+  return escolher((sg) => sg === cand.partido, (_, r) => r) ||
+    escolher((sg) => SUCESSOR[sg] === cand.partido, (sg) => `${cand.partido} sucede o ${sg}`);
 }
 
 /**
  * Compara a votação por município com a referência de 2022.
  * Devolve { ref, pct22, pct26, delta, correlacao, ganhos: [...], perdas: [...], porMun: {mun: delta} }
  */
-export function comparar(linhas, base, ref) {
+export function comparar(linhas, base, ref, { fator = 1 } = {}) {
   if (!base || !ref) return null;
   const xs = [], ys = [], ws = [];
   const itens = [];
@@ -148,10 +157,12 @@ export function comparar(linhas, base, ref) {
     const m = base.mun[l.cd];
     if (!m || !m.validos || !l.validos) continue;
     const p22 = (m.votos[ref.n] || 0) / m.validos * 100;
-    const p26 = l.votos / l.validos * 100;
+    // `fator`: vagas de 2026 por vaga de 2022 (Senado: 2), para comparar a
+    // fatia do eleitorado e não votos que valem metade
+    const p26 = l.votos / l.validos * 100 * fator;
     xs.push(p22); ys.push(p26); ws.push(l.validos);
     v22 += m.votos[ref.n] || 0; val22 += m.validos;
-    v26 += l.votos; val26 += l.validos;
+    v26 += l.votos * fator; val26 += l.validos;
     itens.push({ ...l, p22, p26, delta: p26 - p22, impacto: (p26 - p22) / 100 * l.validos });
   }
   if (!itens.length) return null;
@@ -171,10 +182,14 @@ export function comparar(linhas, base, ref) {
 
 // ---------- leitura estratégica ----------
 
-export function leitura({ cand, perfil: p, comp, andamento, cargoMaj, unidade = "municípios" }) {
+export function leitura({ cand, perfil: p, comp, andamento, segundoTurno = false, senado = false, unidade = "municípios" }) {
   const out = [];
   const sing = unidade === "estados" ? "estado" : "município";
   if (!p || !p.municipios) return out;
+  if (!p.votos) {
+    out.push({ titulo: "Sem votos", texto: `Ainda não tem votos nos ${unidade} apurados deste recorte.`, tom: "neutro" });
+    return out;
+  }
   const parcial = andamento < 100;
 
   out.push({
@@ -197,7 +212,7 @@ export function leitura({ cand, perfil: p, comp, andamento, cargoMaj, unidade = 
     if (Math.abs(dif) >= 3) {
       out.push({
         titulo: dif > 0 ? "Perfil de interior" : "Perfil urbano",
-        texto: `Faz ${pctTxt(pequenos.pct)} nos municípios até 10 mil eleitores e ${pctTxt(grandes.pct)} nos acima de 200 mil (${pp(dif)} a favor dos ${dif > 0 ? "pequenos" : "grandes"}).`,
+        texto: `Faz ${pctTxt(pequenos.pct)} nos municípios até 10 mil eleitores e ${pctTxt(grandes.pct)} nos acima de 200 mil (${Math.abs(dif).toFixed(1).replace(".", ",")} p.p. a favor dos ${dif > 0 ? "pequenos" : "grandes"}).`,
         tom: "neutro"
       });
     }
@@ -227,6 +242,7 @@ export function leitura({ cand, perfil: p, comp, andamento, cargoMaj, unidade = 
     out.push({
       titulo: "Comparação com 2022",
       texto: `Contra ${comp.ref.nome} (${comp.ref.partido}, ${comp.ref.criterio}): ${pctTxt(comp.pct26)} agora contra ${pctTxt(comp.pct22)} em 2022 nos mesmos ${unidade} (${pp(comp.delta)}). ` +
+        (senado ? "Como 2026 elege dois senadores e 2022 elegeu um, o percentual de agora é sobre metade dos válidos, a fatia do eleitorado. " : "") +
         `Correlação geográfica de ${Number.isFinite(herda) ? herda.toFixed(2).replace(".", ",") : "—"}: ${rotuloHeranca} de 2022.`,
       tom: comp.delta >= 0 ? "pos" : "neg"
     });
@@ -246,10 +262,14 @@ export function leitura({ cand, perfil: p, comp, andamento, cargoMaj, unidade = 
     }
   }
 
-  if (cargoMaj && cand && cand.pos <= 2 && cand.pct < 50) {
+  // só no nível da disputa (Brasil para Presidente, estado para Governador),
+  // no 1º turno, e quando ninguém passou de 50% dos válidos
+  if (segundoTurno && cand && cand.pos <= 2) {
     out.push({
       titulo: "Segundo turno",
-      texto: `Com ${pctTxt(cand.pct, 2)} dos válidos, ${cand.pos === 1 ? "lidera mas" : "está em 2º e"} não alcança os 50% necessários para vencer no 1º turno.`,
+      texto: cand.pos === 1
+        ? `Com ${pctTxt(cand.pct, 2)} dos válidos, lidera mas não passa de 50%: a disputa vai ao 2º turno.`
+        : `Com ${pctTxt(cand.pct, 2)} dos válidos, fica em 2º e vai ao 2º turno.`,
       tom: "neutro"
     });
   }

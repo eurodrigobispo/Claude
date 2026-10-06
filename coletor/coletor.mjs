@@ -182,6 +182,7 @@ export function textoEvento(e, nomeDe) {
     return `${nome} vence a eleição presidencial.`;
   }
   if (e.tipo === "segundo-turno") return `${nome} vai ao 2º turno na disputa pel${disputa(e.cargo, e.uf).startsWith("a ") ? "a" : "o"} ${disputa(e.cargo, e.uf).slice(2)}.`;
+  if (e.tipo === "virada" && e.vagas > 1) return `${nome} passa ${nomeDe(e.antes)} e fica entre os ${e.vagas === 2 ? "dois" : e.vagas} mais votados na disputa pel${disputa(e.cargo, e.uf).startsWith("a ") ? "a" : "o"} ${disputa(e.cargo, e.uf).slice(2)}.`;
   if (e.tipo === "virada") return `${nome} passa ${nomeDe(e.antes)} e assume a liderança na disputa pel${disputa(e.cargo, e.uf).startsWith("a ") ? "a" : "o"} ${disputa(e.cargo, e.uf).slice(2)}.`;
   if (e.tipo === "concluida") return `A apuração ${{ 1: "de presidente", 3: "de governador", 5: "do Senado" }[e.cargo]} ${em(e.uf)} chega a 100% das seções.`;
   return e.texto;
@@ -203,8 +204,9 @@ export function detectarEventos(k, antes, r) {
   const [a0] = antes.cands;
   const nomeDe = (n) => (r.cands.find((c) => c.n === n) || {}).nome || n;
 
-  // situação nova: eleito ou segundo turno
-  for (const c of r.cands) {
+  // situação nova: eleito ou segundo turno. O TSE repete a situação do
+  // Presidente em cada arquivo estadual; só a do Brasil vira evento.
+  for (const c of cargo === "1" && uf !== "br" ? [] : r.cands) {
     const s0 = (antes.cands.find((x) => x.n === c.n) || {}).situacao || "";
     if (c.situacao && c.situacao !== s0) {
       const st = c.situacao.toLowerCase();
@@ -212,8 +214,15 @@ export function detectarEventos(k, antes, r) {
       else if (st.includes("turno")) evento({ tipo: "segundo-turno", cargo, uf, n: c.n }, nomeDe);
     }
   }
-  // virada na liderança (só com votos de verdade em jogo)
-  if (a0 && a.n !== a0.n && a.votos > 0 && antes.votos.validos > 0) {
+  // virada (só com votos de verdade em jogo): na liderança ou, com mais de
+  // uma vaga (Senado), na fronteira entre quem se elege e quem fica de fora
+  const vagas = r.vagas || 1;
+  if (vagas > 1) {
+    const dentro = r.cands.slice(0, vagas), dentroAntes = antes.cands.slice(0, vagas).map((c) => c.n);
+    const entrou = dentro.find((c) => !dentroAntes.includes(c.n));
+    const saiu = dentroAntes.find((n) => !dentro.some((c) => c.n === n));
+    if (entrou && saiu && entrou.votos > 0 && antes.votos.validos > 0) evento({ tipo: "virada", cargo, uf, n: entrou.n, antes: saiu, vagas }, nomeDe);
+  } else if (a0 && a.n !== a0.n && a.votos > 0 && antes.votos.validos > 0) {
     evento({ tipo: "virada", cargo, uf, n: a.n, antes: a0.n }, nomeDe);
   }
   // avanço da apuração no placar nacional de presidente

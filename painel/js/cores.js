@@ -69,10 +69,11 @@ export function misturar(de, para, t) {
   return memo.get(k);
 }
 
-// líder por margem sobre o 2º: < 10, < 25, < 45, ≥ 45 pontos
+// líder por margem sobre o 2º: até 10, até 25, até 45 e mais de 45 pontos,
+// como diz a legenda
 const TONS_MARGEM = [0.4, 0.62, 0.82, 1];
 export function corMargem(sg, margem) {
-  const i = margem < 10 ? 0 : margem < 25 ? 1 : margem < 45 ? 2 : 3;
+  const i = margem <= 10 ? 0 : margem <= 25 ? 1 : margem <= 45 ? 2 : 3;
   return misturar(TERRA, corPartido(sg), TONS_MARGEM[i]);
 }
 export const rampaMargem = (sg) => TONS_MARGEM.map((t) => misturar(TERRA, corPartido(sg), t));
@@ -85,6 +86,8 @@ export function quebrasCandidato(S) {
   return [0.4 * s, 0.7 * s, s, Math.min(1.4 * s, s + 0.3 * (1 - s)), Math.min(2 * s, s + 0.6 * (1 - s))].map((v) => v * 100);
 }
 export function classeCandidato(pct, quebras) {
+  // sem votos é o tom mais claro, mesmo quando a média do candidato é zero
+  if (!(pct > 0)) return 0;
   let i = 0;
   while (i < quebras.length && pct >= quebras[i]) i++;
   return i;

@@ -57,7 +57,7 @@ const st = {
   cidade: null,         // {cd, cache, res, grande, total, zonas, carga}
   locaisCidade: null,
   zonas2022: null,
-  refN: null,
+  base2022Cidade: null,
   comp: null,
   tabela: { aba: "areas", ordem: "votos", desc: true, filtro: "" },
   geracao: 0,
@@ -616,7 +616,7 @@ async function apurarSecoes(ger, mun) {
 // dados de apoio da cidade: locais de votação e zonas de 2022
 async function prepararCidade() {
   if (!st.mun) {
-    st.locaisCidade = st.zonas2022 = st.refN = null;
+    st.locaisCidade = st.zonas2022 = st.base2022Cidade = null;
     return;
   }
   const mun = st.mun, uf = st.uf;
@@ -624,13 +624,40 @@ async function prepararCidade() {
   if (mun !== st.mun || uf !== st.uf) return;
   st.locaisCidade = loc ? loc[mun] || {} : {};
   const base = ["1", "3", "5"].includes(st.cargo) ? municipios2022(hist, st.cargo, `t${tse.TURNO}`) : null;
-  const n = alvoN();
-  const c = n && candInfo(n);
-  const ref = c && base ? referencia2022(c, base) : null;
-  st.refN = ref ? ref.n : null;
+  st.base2022Cidade = base;
   st.zonas2022 = base && base.mun[mun] ? base.mun[mun].zonas : {};
   renderTabela();
   pintarLocais();
+}
+
+// referência de 2022 do candidato da tabela, que muda com a zona aberta
+const memoRef = new WeakMap();
+function refN() {
+  const n = alvoN(), c = n && candInfo(n), base = st.base2022Cidade;
+  if (!c || !base) return null;
+  let m = memoRef.get(base);
+  if (!m) memoRef.set(base, (m = new Map()));
+  if (!m.has(n)) { const r = referencia2022(c, base); m.set(n, r ? r.n : null); }
+  return m.get(n);
+}
+
+// vagas de 2026 por vaga de 2022 na mesma disputa: o Senado elegeu um por
+// estado em 2022 e elege dois em 2026, e cada eleitor vota duas vezes
+const fator2022 = () => (st.cargo === "5" && st.resumoUF ? st.resumoUF.vagas || 1 : 1);
+
+// o recorte é o nível em que a disputa se decide: Brasil para Presidente,
+// estado para Governador e Senador (não um estado, cidade ou zona)
+const nivelDaDisputa = () => !st.mun && !st.zona && (cargoDef().nacional ? st.uf === "br" : st.uf !== "br");
+
+// 2º turno na disputa do recorte: "definido" pela situação oficial ou com
+// tudo apurado, "provavel" se ninguém passa de 50% com apuração parcial
+function segundoTurno() {
+  if (tse.TURNO !== 1 || !cargoDef().turno2 || !nivelDaDisputa()) return false;
+  const r = st.resumo;
+  if (!r || !r.cands.length) return false;
+  if (r.cands.some((c) => /turno/i.test(c.situacao))) return "definido";
+  if (r.cands.some((c) => /^eleit/i.test(c.situacao)) || r.cands[0].pct > 50) return false;
+  return r.secoes.pct >= 100 ? "definido" : "provavel";
 }
 
 // candidato de referência para tabela, tooltips e locais: o escolhido ou o líder do recorte (zona, cidade ou estado)
@@ -1007,8 +1034,10 @@ function placarEstados() {
     eleitos += el.length;
     if (t2) segundo++;
     else if (el.length < (r.vagas || 1)) apurando++;
+    // a margem que decide é a da última vaga: no Senado com duas, 2º contra 3º
     const [a, b] = r.cands;
-    return { uf, r, a, b, margem: a && b ? a.pct - b.pct : 100, eleitos: el, t2 };
+    const k = r.vagas || 1, dentro = r.cands[k - 1], fora = r.cands[k];
+    return { uf, r, a, b, dentro, fora, margem: dentro && fora ? dentro.pct - fora.pct : 100, eleitos: el, t2 };
   });
   return { disputas, total, totalizadas, pct: total ? totalizadas / total * 100 : 0, eleitos, segundo, apurando, vagas };
 }
@@ -1036,13 +1065,14 @@ function renderHeroEstados() {
     <div class="faixa-uf">${tiles}</div>
     <div class="kv">
       <div><span>Eleitos</span>${fmt.format(p.eleitos)}</div>
-      ${tse.TURNO === 1 ? `<div><span>Vão ao 2º turno</span>${fmt.format(p.segundo)} ${p.segundo === 1 ? "estado" : "estados"}</div>` : ""}
+      ${tse.TURNO === 1 && !senado ? `<div><span>Vão ao 2º turno</span>${fmt.format(p.segundo)} ${p.segundo === 1 ? "estado" : "estados"}</div>` : ""}
       <div><span>Em apuração</span>${fmt.format(p.apurando)} ${p.apurando === 1 ? "estado" : "estados"}</div>
     </div>`);
 }
 
 function renderDisputas() {
   const p = placarEstados();
+  const senado = st.cargo === "5";
   $("#candRecorte").textContent = "das mais apertadas";
   const termo = semAcento($("#candFiltro").value.trim());
   const lista = p.disputas
@@ -1051,36 +1081,38 @@ function renderDisputas() {
   definir($("#candLista"), lista.map((d) => `
     <li><button type="button" class="crow disputa" data-ir-area="${d.uf}" style="--c:${corPartido(d.a ? d.a.partido : "")}">
       <span class="uft" style="background:${corArea(st.nacional.get(d.uf), "", [])};color:${tinta(corArea(st.nacional.get(d.uf), "", []))}">${d.uf.toUpperCase()}</span>
-      <span class="txt"><span class="nm">${esc(d.a ? d.a.nome : "—")}</span><span class="pm" style="--c:${corTexto(d.a ? d.a.partido : "")}">${esc(d.a ? `${d.a.partido} · ${pctTxt(d.a.pct)}` : "")}${d.b ? ` · ${esc(d.b.nome)} ${pctTxt(d.b.pct)}` : ""}</span></span>
-      <span class="val">${esc(situacaoTexto(d))}<small>${d.b ? `vantagem ${d.margem.toFixed(1).replace(".", ",")} pts` : ""}</small></span>
+      <span class="txt"><span class="nm">${esc(d.a ? d.a.nome : "—")}${senado && d.b ? ` e ${esc(d.b.nome)}` : ""}</span><span class="pm" style="--c:${corTexto(d.a ? d.a.partido : "")}">${esc(d.a ? `${d.a.partido} · ${pctTxt(d.a.pct)}` : "")}${d.b ? ` · ${esc(senado ? d.b.partido : d.b.nome)} ${pctTxt(d.b.pct)}` : ""}</span></span>
+      <span class="val">${esc(situacaoTexto(d))}<small>${d.fora ? `${senado ? "sobre o 3º" : "vantagem"} ${d.margem.toFixed(1).replace(".", ",")} pts` : ""}</small></span>
     </button></li>`).join("") || `<li class="vazio">Carregando…</li>`);
 }
 
 function renderPanoramaEstados() {
   const p = placarEstados();
   const porPartido = new Map();
+  const doPartido = (sg) => {
+    if (!porPartido.has(sg)) porPartido.set(sg, { lidera: 0, eleitos: 0 });
+    return porPartido.get(sg);
+  };
+  // cada eleito conta para o próprio partido (no Senado são dois por estado)
   for (const d of p.disputas) {
-    if (!d.a) continue;
-    const k = d.a.partido;
-    const x = porPartido.get(k) || { lidera: 0, eleitos: 0 };
-    x.lidera++;
-    x.eleitos += d.eleitos.length;
-    porPartido.set(k, x);
+    if (d.a) doPartido(d.a.partido).lidera++;
+    for (const e of d.eleitos) doPartido(e.partido).eleitos++;
   }
   const partidos = [...porPartido.entries()].sort((a, b) => b[1].eleitos - a[1].eleitos || b[1].lidera - a[1].lidera).slice(0, 8);
-  const apertadas = p.disputas.filter((d) => !d.eleitos.length && d.b).sort((a, b) => a.margem - b.margem).slice(0, 6);
+  const apertadas = p.disputas.filter((d) => d.eleitos.length < (d.r.vagas || 1) && d.fora).sort((a, b) => a.margem - b.margem).slice(0, 6);
   return `
     <div class="hd"><h3>Panorama</h3><span class="aside">${esc(nomeCargo())} · Brasil</span></div>
     <div class="kpis">
       ${kpi("Eleitos", fmt.format(p.eleitos), st.cargo === "5" ? `de ${fmt.format(p.vagas)} vagas` : "de 27 estados", true)}
-      ${kpi(tse.TURNO === 1 ? "2º turno" : "Em disputa", fmt.format(tse.TURNO === 1 ? p.segundo : p.apurando), "estados", true)}
+      ${st.cargo === "5" ? kpi("Vagas", fmt.format(p.vagas), "duas por estado", true)
+        : kpi(tse.TURNO === 1 ? "2º turno" : "Em disputa", fmt.format(tse.TURNO === 1 ? p.segundo : p.apurando), "estados", true)}
       ${kpi("Em apuração", fmt.format(p.apurando), "estados")}
       ${kpi("Seções", pctTxt(Math.floor(p.pct * 10) / 10), `${fmt.format(p.totalizadas)} de ${fmt.format(p.total)}`)}
     </div>
     ${partidos.length ? `<section class="sec"><div class="hd"><h3>Por partido</h3><span class="aside">lidera · eleitos</span></div>
       ${partidos.map(([sg, x]) => `<div class="krow estatico"><span><span class="nm" style="color:${corTexto(sg)}">${esc(sg)}</span><span class="sub">à frente em ${x.lidera} ${x.lidera === 1 ? "estado" : "estados"}</span></span><span class="kv" style="--c:${corTexto(sg)}">${x.eleitos}<small>${x.eleitos === 1 ? "eleito" : "eleitos"}</small></span></div>`).join("")}</section>` : ""}
     ${apertadas.length ? `<section class="sec"><div class="hd"><h3>Disputas mais apertadas</h3><span class="aside">sem eleito ainda</span></div>
-      ${ranking(apertadas.map((d) => ({ cd: d.uf, nome: tse.NOME_UF[d.uf], d })), (l) => `${l.d.margem.toFixed(1).replace(".", ",")} pts`, (l) => `${l.d.a.nome} ${pctTxt(l.d.a.pct)} × ${l.d.b.nome} ${pctTxt(l.d.b.pct)}`, "var(--fg)")}</section>` : ""}
+      ${ranking(apertadas.map((d) => ({ cd: d.uf, nome: tse.NOME_UF[d.uf], d })), (l) => `${l.d.margem.toFixed(1).replace(".", ",")} pts`, (l) => `${l.d.dentro.nome} ${pctTxt(l.d.dentro.pct)} × ${l.d.fora.nome} ${pctTxt(l.d.fora.pct)}`, "var(--fg)")}</section>` : ""}
     ${listaEventos()}
     <section class="sec"><p class="nota">Clique num estado no mapa, na faixa ou na lista para abrir a disputa, com a votação por município e a leitura de cada candidato.</p></section>`;
 }
@@ -1226,9 +1258,12 @@ function renderHero() {
       <div class="fig">${pctTxt(c.pct, 2).replace("%", "")}<sup>%</sup></div>
       <div class="votes">${fmt.format(c.votos)} votos</div>
     </div>` : "";
-  const goal = cargoDef().turno2 && b ? `
+  // a meta dos 50% só vale no nível em que a disputa se decide: o Presidente
+  // passar de 50% num estado não o elege
+  const falta = (c) => (c.pct > 50 ? "passou dos 50%" : `faltam ${Math.max(0.01, Math.ceil((50 - c.pct) * 100) / 100).toFixed(2).replace(".", ",")} pontos`);
+  const goal = cargoDef().turno2 && b && nivelDaDisputa() ? `
     <div class="goal"><i class="a" style="width:${Math.min(100, a.pct)}%;--c:${corPartido(a.partido)}"></i><i class="b" style="width:${Math.min(100 - Math.min(100, a.pct), b.pct)}%;--c:${corPartido(b.partido)}"></i><span class="fifty"></span></div>
-    <div class="faltam"><span>${a.pct > 50 ? "passou dos 50%" : `faltam ${(50 - a.pct).toFixed(1).replace(".", ",")} pontos`}</span><span>${b.pct > 50 ? "passou dos 50%" : `faltam ${(50 - b.pct).toFixed(1).replace(".", ",")} pontos`}</span></div>` : "";
+    <div class="faltam"><span>${falta(a)}</span><span>${falta(b)}</span></div>` : "";
   const r = rr.r;
   const pendente = r ? Math.max(0, r.eleitorado - r.eleitoradoApurado) : 0;
   const eleitos = rr.cands.filter((c) => /^eleit/i.test(c.situacao)).length;
@@ -1241,7 +1276,7 @@ function renderHero() {
       ${b && !cargoDef().prop ? `<div><span>Vantagem</span>${(a.pct - b.pct).toFixed(2).replace(".", ",")} pontos</div>` : ""}
       ${cargoDef().prop || cargoDef().id === "5" ? `<div><span>Vagas</span>${r ? r.vagas : "—"}</div>` : ""}
       ${cargoDef().prop && eleitos ? `<div><span>Eleitos</span>${fmt.format(eleitos)}</div>` : ""}
-      ${r ? `<div><span>Por apurar</span>${pendente ? `${grande(Math.round(pendente))} de eleitores` : "nada"}</div>` : ""}
+      ${r ? `<div><span>Por apurar</span>${pendente ? `${grande(Math.round(pendente))}${pendente >= 1e6 ? " de" : ""} eleitores` : "nada"}</div>` : ""}
     </div>`);
 }
 
@@ -1351,7 +1386,8 @@ function origemNaCidade(c) {
   const linhaZ = zonas.map((g) => {
     const v = g.votos[c.n] || 0, pct = g.validos ? v / g.validos * 100 : 0;
     const z = z22[g.zona];
-    const delta = z && z.validos && st.refN && st.cand ? pct - (z.votos[st.refN] || 0) / z.validos * 100 : null;
+    const rn = st.cand && refN();
+    const delta = z && z.validos && rn ? pct * fator2022() - (z.votos[rn] || 0) / z.validos * 100 : null;
     return { cd: g.zona, nome: `Zona ${g.zona}`, v, pct, peso: v / total * 100, delta };
   }).sort((a, b) => b.v - a.v);
   const loc = st.locaisCidade || {};
@@ -1375,10 +1411,10 @@ async function preencherLeitura(c, linhas, p) {
   if (["1", "3", "5"].includes(st.cargo) && codCargo() !== "8" && linhas.length) {
     const base = await base2022(st.cargo);
     if (ger !== st.geracao || cand !== st.cand) return;
-    comp = comparar(linhas, base, referencia2022(c, base));
+    comp = comparar(linhas, base, referencia2022(c, base), { fator: fator2022() });
   }
   const andamento = st.resumoUF ? st.resumoUF.secoes.pct : 0;
-  const itens = leitura({ cand: c, perfil: p, comp, andamento, cargoMaj: cargoDef().turno2, unidade: porEstado() ? "estados" : "municípios" });
+  const itens = leitura({ cand: c, perfil: p, comp, andamento, segundoTurno: segundoTurno(), senado: fator2022() > 1, unidade: porEstado() ? "estados" : "municípios" });
   const el = $("#dLeitura");
   if (!el) return;
   el.innerHTML = `<div class="hd"><h3>Leitura estratégica</h3></div>` + (itens.length
@@ -1493,6 +1529,7 @@ function carregarRegioes2022() {
   regioes2022 = Promise.all(REGIOES.flatMap(([, ufs]) => ufs).map(async (uf) => [uf, municipios2022(await hist2022(uf), "1", `t${tse.TURNO}`)]))
     .then((lista) => {
       const porUf = Object.fromEntries(lista);
+      st.cand2022Pres = Object.assign({}, ...Object.values(porUf).filter(Boolean).map((b) => b.cand));
       const out = {};
       for (const [nome, ufs] of REGIOES) {
         const r = (out[nome] = { validos: 0, votos: {} });
@@ -1533,7 +1570,8 @@ function porRegiao(fixo = "") {
     const c = candInfo(n) || { nome: n, partido: "", n, sq: "" };
     const pct = votos[n] / validos * 100;
     const r22 = st.regioes2022 && st.regioes2022[nome];
-    const delta = r22 && r22.validos ? pct - (r22.votos[n] || 0) / r22.validos * 100 : null;
+    const ref = st.cand2022Pres && candInfo(n) ? referencia2022(candInfo(n), { cand: st.cand2022Pres, mun: st.regioes2022 }) : null;
+    const delta = r22 && r22.validos && ref ? pct - (r22.votos[ref.n] || 0) / r22.validos * 100 : null;
     return `<button type="button" class="reg" ${ufs.length === 1 ? `data-ir-area="${ufs[0]}"` : ""} style="--c:${corPartido(c.partido)}">
       <span class="reg-nome">${esc(nome)}<small>${pctTxt(Math.floor(totalizadas / total * 1000) / 10)} · faltam ${esc(grande(Math.round(pendente)))}</small></span>
       <span class="reg-val">${avatar(c, 22, false, "br")}<span class="pm" style="--c:${corTexto(c.partido)}">${esc(c.partido)}</span><b>${pctTxt(pct)}</b>${delta != null ? `<small>${delta >= 0 ? "+" : "−"}${Math.abs(delta).toFixed(1).replace(".", ",")}</small>` : ""}</span>
@@ -1574,6 +1612,7 @@ function renderPanorama() {
 // ---------- tabela ----------
 
 const COLUNAS_DISPUTAS = [["nome", "Estado", "t"], ["secoesPct", "Apurado", "p"], ["lider", "1º colocado", "t"], ["pct", "%", "p"], ["segundo", "2º colocado", "t"], ["pct2", "%", "p"], ["margem", "Vantagem", "n"], ["situacao", "Situação", "t"]];
+const COLUNAS_SENADO = [["nome", "Estado", "t"], ["secoesPct", "Apurado", "p"], ["lider", "1º colocado", "t"], ["pct", "%", "p"], ["segundo", "2º colocado", "t"], ["pct2", "%", "p"], ["terceiro", "3º colocado", "t"], ["pct3", "%", "p"], ["margem", "2º sobre 3º", "n"], ["situacao", "Situação", "t"]];
 
 const COLUNAS = {
   areas: [["nome", "Local", "t"], ["eleitorado", "Eleitorado", "n"], ["secoesPct", "Apurado", "p"], ["votos", "Votos", "n"], ["pct", "% válidos", "p"], ["peso", "Peso no total", "p"], ["pos", "Posição", "n"], ["delta", "vs 2022", "d"]],
@@ -1587,7 +1626,8 @@ function linhasTabela() {
       cd: d.uf, nome: tse.NOME_UF[d.uf], secoesPct: d.r.secoes.pct,
       lider: d.a ? `${d.a.nome} (${d.a.partido})` : "", pct: d.a ? d.a.pct : NaN,
       segundo: d.b ? `${d.b.nome} (${d.b.partido})` : "", pct2: d.b ? d.b.pct : NaN,
-      margem: d.b ? +d.margem.toFixed(1) : NaN, situacao: situacaoTexto(d)
+      terceiro: d.r.cands[2] ? `${d.r.cands[2].nome} (${d.r.cands[2].partido})` : "", pct3: d.r.cands[2] ? d.r.cands[2].pct : NaN,
+      margem: d.fora ? +d.margem.toFixed(1) : NaN, situacao: situacaoTexto(d)
     }));
   }
   const n = alvoN();
@@ -1604,6 +1644,7 @@ function linhasTabela() {
   const totalCand = grupos.reduce((s, g) => s + (g.votos[n] || 0), 0);
   const loc = st.locaisCidade || {};
   const z22 = st.zonas2022 || {};
+  const rn = refN(), fator = fator2022();
   return grupos
     .filter((g) => !porLocal || !st.zona || g.zona === st.zona)
     .map((g) => {
@@ -1621,7 +1662,7 @@ function linhasTabela() {
         comparecimento: g.comparecimento,
         votos, pct,
         peso: totalCand ? votos / totalCand * 100 : NaN,
-        delta: z && z.validos && st.refN ? pct - (z.votos[st.refN] || 0) / z.validos * 100 : undefined
+        delta: z && z.validos && rn ? pct * fator - (z.votos[rn] || 0) / z.validos * 100 : undefined
       };
     });
 }
@@ -1636,7 +1677,7 @@ function renderTabela() {
   const boletins = st.tabela.aba !== "areas" && res ? ` · ${fmt.format(res.lidas)} de ${fmt.format(res.recebidas)} boletins de urna publicados` : "";
   $("#tabNota").textContent = c ? `Votos de ${c.nome}${st.cand ? "" : ", líder no recorte"}${boletins}` : "";
 
-  const cols = visaoEstados() ? COLUNAS_DISPUTAS : COLUNAS[st.tabela.aba].filter(([k]) => k !== "delta" || ["1", "3", "5"].includes(st.cargo));
+  const cols = visaoEstados() ? (st.cargo === "5" ? COLUNAS_SENADO : COLUNAS_DISPUTAS) : COLUNAS[st.tabela.aba].filter(([k]) => k !== "delta" || ["1", "3", "5"].includes(st.cargo));
   const { ordem, desc } = st.tabela;
   const termo = semAcento(st.tabela.filtro);
   const linhas = linhasTabela().filter((l) => !termo || semAcento(l.nome).includes(termo) || semAcento(l.bairro).includes(termo));

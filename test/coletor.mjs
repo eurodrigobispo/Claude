@@ -54,6 +54,14 @@ parcial.s.st = String(Number(parcial.s.ts) - 10);
 parcial.s.pst = parcial.s.pstn = pctDe(Number(parcial.s.st), Number(parcial.s.ts));
 sobrescrito.set("ac-c0003-e006259-u.json", parcial);
 
+// Senado do Acre, duas vagas, montado a partir do arquivo de governador
+const senado = fixture0("ac-c0003-e006259-u.json");
+senado.carg[0].cd = "5";
+senado.carg[0].nv = "2";
+const candsSen = () => senado.carg[0].agr.flatMap((a) => a.par.flatMap((p) => p.cand)).sort((a, b) => b.vap - a.vap);
+for (const c of candsSen()) c.st = "";
+sobrescrito.set("ac-c0005-e006259-u.json", senado);
+
 process.argv.push("--saida", saida, "--zonas", "ac:01066", "--zonas-cargos", "1,3,5,6,7", "--municipios", "3", "--paralelo", "8");
 const coletor = await import("../coletor/coletor.mjs");
 
@@ -83,6 +91,8 @@ sobrescrito.set("ac-c0003-e006259-u.json", gov);
 const presAc = fixture("ac-c0001-e006257-u.json");
 const pc = presAc.carg[0].agr.flatMap((a) => a.par.flatMap((p) => p.cand)).sort((a, b) => b.vap - a.vap);
 [pc[0].vap, pc[1].vap] = [pc[1].vap, String(Number(pc[0].vap) + 1)];
+// o TSE repete a situação do Presidente no arquivo de cada estado
+pc[0].st = pc[1].st = "2º turno";
 presAc.hg = "23:59:59";
 sobrescrito.set("ac-c0001-e006257-u.json", presAc);
 
@@ -90,6 +100,12 @@ const presSp = fixture("sp-c0001-e006257-u.json");
 presSp.s.st = String(Math.min(Number(presSp.s.ts), Number(presSp.s.st) + 300));
 presSp.hg = "23:59:59";
 sobrescrito.set("sp-c0001-e006257-u.json", presSp);
+
+// o 3º do Senado passa o 2º: muda quem fica com a segunda vaga
+const [, s2, s3] = candsSen();
+[s2.vap, s3.vap] = [s3.vap, String(Number(s2.vap) + 1)];
+senado.hg = "23:59:59";
+sobrescrito.set("ac-c0005-e006259-u.json", JSON.parse(JSON.stringify(senado)));
 
 // arquivo incoerente: mais seções totalizadas que seções
 const ruim = fixture("rr-c0001-e006257-u.json");
@@ -103,6 +119,8 @@ const tipos = ev.map((e) => e.tipo);
 check("evento de eleito", ev.some((e) => e.tipo === "eleito" && e.uf === "ac" && e.texto.includes("vence a eleição para o governo do Acre")), JSON.stringify(ev.filter((e) => e.tipo === "eleito")));
 check("evento de virada", ev.some((e) => e.tipo === "virada" && e.uf === "ac" && e.cargo === "1" && e.texto.includes("na disputa pela Presidência no Acre")));
 check("evento de seções no placar nacional", ev.some((e) => e.tipo === "secoes" && e.secoes > 0));
+check("virada pela segunda vaga do Senado", ev.some((e) => e.tipo === "virada" && e.cargo === "5" && e.texto.includes("fica entre os dois mais votados na disputa pelo Senado pelo Acre")), JSON.stringify(ev.filter((e) => e.cargo === "5").map((e) => e.texto)));
+check("situação do Presidente num estado não vira evento", !ev.some((e) => e.cargo === "1" && e.uf !== "br" && (e.tipo === "segundo-turno" || e.tipo === "eleito")));
 check("histórico ganha ponto quando a apuração anda", lerFeed("historico.json").series["3-ac"].length === 2);
 const agora2 = lerFeed("agora.json");
 check("arquivo incoerente é descartado", agora2.corridas["1"].rr.totalizadas === agora1.corridas["1"].rr.totalizadas);
