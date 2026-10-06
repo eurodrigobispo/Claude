@@ -1,6 +1,6 @@
 import * as tse from "./tse.js";
 import * as feed from "./feed.js";
-import { apurarCidade, agrupar } from "./bu.js";
+import { apurarCidade, agrupar, nulosTecnicos } from "./bu.js";
 import { malha, projetar, zoomavel } from "./geo.js";
 import { perfil, municipios2022, referencia2022, comparar, leitura, pctTxt, pp } from "./analise.js";
 import { Delaunay } from "./vendor/d3-delaunay.js";
@@ -188,6 +188,9 @@ function linhasAnalise(n) {
 // ---------- coletor ----------
 
 const doColetor = (cargo = st.cargo) => feed.ativo() && ["1", "3", "5"].includes(cargo);
+// matriz por município no feed: a dos majoritários e a dos cargos que o
+// coletor anuncia em agora.json (deputados com --municipios 1,3,5,6,7)
+const matrizNoFeed = (cargo = st.cargo) => doColetor(cargo) || (feed.ativo() && !!st.agora && (st.agora.municipais || []).includes(cargo));
 
 function resultadoDoFeed(cargo, uf) {
   const c = st.agora && st.agora.corridas[cargo] && st.agora.corridas[cargo][uf];
@@ -273,7 +276,11 @@ function gravarHash() {
   try { history.replaceState(null, "", "#" + p.toString()); } catch (_) { /* moldura sem histórico */ }
 }
 
-const cargosDisponiveis = () => tse.cargosDoTurno().filter((c) => !estatico() || ["1", "3", "5"].includes(c.id));
+// PAINEL_CONFIG.cargos limita os cargos de um retrato que não tenha todos
+const cargosDisponiveis = () => {
+  const so = globalThis.PAINEL_CONFIG && globalThis.PAINEL_CONFIG.cargos;
+  return tse.cargosDoTurno().filter((c) => !so || so.includes(c.id));
+};
 
 function normalizar() {
   if (!cargosDisponiveis().some((c) => c.id === st.cargo)) st.cargo = "1";
@@ -356,7 +363,7 @@ async function carregarMunicipio() {
   focarMunicipio();
   renderTudo();
   try {
-    const l = doColetor() && st.linhasFeed && st.linhasFeed.get(mun);
+    const l = matrizNoFeed() && st.linhasFeed && st.linhasFeed.get(mun);
     const r = l ? resultadoDaLinha(l) : tse.lerResultado(await tse.json(tse.url.resultado(st.cargo, st.uf, mun), { signal: st.ctrl.signal }));
     if (ger !== st.geracao || mun !== st.mun) return;
     st.resumo = r;
@@ -377,7 +384,7 @@ async function carregarMatriz(ger, signal, soMudados = false) {
     return;
   }
   // com coletor, a UF inteira vem num arquivo só
-  if (doColetor() && await matrizDoFeed(ger, st.uf, st.cargo)) return;
+  if (matrizNoFeed() && await matrizDoFeed(ger, st.uf, st.cargo)) return;
   const lista = listaMun();
   if (!lista.length) return;
   let alvo = lista;
@@ -532,6 +539,12 @@ async function abrirCidade(ger, mun) {
 async function zonasDoFeed(ger, mun) {
   try {
     const d = await feed.json(`zonas/${st.uf}-${mun}.json`);
+    // cada cargo de deputado vem no seu arquivo
+    const cod = codCargo();
+    if (!d.cargos[cod] && (d.proporcionais || []).includes(cod)) {
+      const p = await feed.json(`zonas/${st.uf}-${mun}-c${cod}.json`);
+      d.cargos[cod] = { zonas: p.zonas, locais: p.locais };
+    }
     if (ger !== st.geracao || mun !== st.mun) return true;
     const enquadrada = st.cidade && st.cidade.cd === mun ? st.cidade.enquadrada : null;
     st.cidade = { cd: mun, feedZonas: d, enquadrada, res: { lidas: d.lidas, recebidas: d.recebidas, total: d.total, aguardando: d.aguardando } };
@@ -543,19 +556,42 @@ async function zonasDoFeed(ger, mun) {
   }
 }
 
-// zonas, locais ou seções da cidade aberta, vindos do coletor ou dos boletins
+// zonas, locais ou seções da cidade aberta, vindos do coletor ou dos boletins,
+// com os nulos técnicos já fora dos válidos (como o TSE conta)
+const memoGrupos = new WeakMap();
 function gruposCidade(por) {
   const c = st.cidade;
   if (!c || !c.res) return [];
+  const chave = `${codCargo()}|${por}|${c.res.secoes ? c.res.secoes.length : ""}`;
+  let memo = memoGrupos.get(c.res);
+  if (!memo || memo.r !== st.resumoUF) memoGrupos.set(c.res, memo = { r: st.resumoUF, grupos: new Map() });
+  if (memo.grupos.has(chave)) return memo.grupos.get(chave);
+  let grupos;
   if (c.feedZonas) {
     const g = c.feedZonas.cargos[codCargo()];
-    if (!g) return [];
-    return (por === "local" ? g.locais : g.zonas).map((x) => ({
+    grupos = !g ? [] : (por === "local" ? g.locais : g.zonas).map((x) => ({
       ...x, zona: String(x.zona), local: String(x.local),
       chave: por === "local" ? `${x.zona}/${x.local}` : String(x.zona)
     }));
+  } else {
+    grupos = agrupar(c.res.secoes, codCargo(), por);
   }
-  return agrupar(c.res.secoes, codCargo(), por);
+  if (st.resumoUF) grupos = nulosTecnicos(grupos, numerosValidos(st.resumoUF));
+  memo.grupos.set(chave, grupos);
+  return grupos;
+}
+
+// números que o TSE conta como válidos: os candidatos e, nos cargos
+// proporcionais, a legenda (L<partido>) de cada partido com candidatos
+const memoNumeros = new WeakMap();
+function numerosValidos(r) {
+  let s = memoNumeros.get(r);
+  if (!s) {
+    s = new Set(r.cands.map((c) => c.n));
+    if (!ehMajoritario()) for (const c of r.cands) if (c.npartido) s.add(`L${c.npartido}`);
+    memoNumeros.set(r, s);
+  }
+  return s;
 }
 
 async function apurarSecoes(ger, mun) {
@@ -1129,11 +1165,46 @@ function resultadoRecorte() {
   return r ? { cands: r.cands, validos: r.votos.validos, rotulo: nomeRecorte().slice(-1)[0], secoes: r.secoes, r } : null;
 }
 
-function avatar(c, s = 30, quadrado = false, uf = st.uf) {
+function avatar(c, s = 30, quadrado = false, uf = st.uf, cargo = st.cargo) {
   const cor = corPartido(c.partido);
-  return `<span class="av${quadrado ? " q" : ""}" style="--s:${s}px;--c:${cor}"><img src="${esc(tse.url.foto(st.cargo, uf, c.sq))}" alt="" loading="lazy" data-ini="${esc(iniciais(c.nome))}"></span>`;
+  const fonte = pastaFotos() ? `data-foto="${pacoteFoto(cargo, uf)}/${esc(c.sq)}"` : `src="${esc(tse.url.foto(cargo, uf, c.sq))}" loading="lazy"`;
+  return `<span class="av${quadrado ? " q" : ""}" style="--s:${s}px;--c:${cor}"><img ${fonte} alt="" data-ini="${esc(iniciais(c.nome))}"></span>`;
 }
 const iniciais = (nome) => String(nome).split(/\s+/).filter(Boolean).slice(0, 2).map((p) => p[0]).join("");
+
+// Retratos: do TSE ou, com window.PAINEL_CONFIG.fotos (ex.: "dados/fotos/"),
+// de pacotes locais ({sq: "data:image/jpeg;base64,…"}) para a página
+// publicada sem acesso à rede. Um pacote para o Presidente, um por UF para
+// Governador e Senador e um por UF e cargo para os deputados.
+const pastaFotos = () => globalThis.PAINEL_CONFIG && globalThis.PAINEL_CONFIG.fotos;
+const pacotesFotos = new Map();
+function pacoteFoto(cargo, uf) {
+  const def = tse.cargoDef(cargo);
+  return def.nacional ? "br" : def.prop ? `${uf}-c${tse.codigoCargo(cargo, uf)}` : uf;
+}
+
+function trocarPorIniciais(img) {
+  const b = document.createElement("b");
+  b.textContent = img.dataset.ini || "";
+  img.replaceWith(b);
+}
+
+function preencherFotos() {
+  for (const img of document.querySelectorAll("img[data-foto]")) {
+    const [pacote, sq] = img.dataset.foto.split("/");
+    const fotos = pacotesFotos.get(pacote);
+    if (!fotos) {
+      const p = fetch(`${pastaFotos()}${pacote}.json`).then((r) => (r.ok ? r.json() : {})).catch(() => ({}));
+      pacotesFotos.set(pacote, p);
+      p.then((d) => { pacotesFotos.set(pacote, d); preencherFotos(); });
+      continue;
+    }
+    if (fotos instanceof Promise) continue;
+    img.removeAttribute("data-foto");
+    if (fotos[sq]) img.src = fotos[sq];
+    else trocarPorIniciais(img);
+  }
+}
 
 function renderHero() {
   if (visaoEstados()) return renderHeroEstados();
@@ -1160,17 +1231,22 @@ function renderHero() {
     <div class="faltam"><span>${a.pct > 50 ? "passou dos 50%" : `faltam ${(50 - a.pct).toFixed(1).replace(".", ",")} pontos`}</span><span>${b.pct > 50 ? "passou dos 50%" : `faltam ${(50 - b.pct).toFixed(1).replace(".", ",")} pontos`}</span></div>` : "";
   const r = rr.r;
   const pendente = r ? Math.max(0, r.eleitorado - r.eleitoradoApurado) : 0;
+  const eleitos = rr.cands.filter((c) => /^eleit/i.test(c.situacao)).length;
   definir(el, `
     <div class="kicker">${esc(kicker)}${pctSec != null ? ` · ${pctTxt(pctSec)} das seções` : ""}</div>
     <p class="sent">${frase}</p>
     <div class="leaders">${lado(a, "")}${lado(b, "r")}</div>
     ${goal}
     <div class="kv">
-      ${b ? `<div><span>Vantagem</span>${(a.pct - b.pct).toFixed(2).replace(".", ",")} pontos</div>` : ""}
+      ${b && !cargoDef().prop ? `<div><span>Vantagem</span>${(a.pct - b.pct).toFixed(2).replace(".", ",")} pontos</div>` : ""}
       ${cargoDef().prop || cargoDef().id === "5" ? `<div><span>Vagas</span>${r ? r.vagas : "—"}</div>` : ""}
+      ${cargoDef().prop && eleitos ? `<div><span>Eleitos</span>${fmt.format(eleitos)}</div>` : ""}
       ${r ? `<div><span>Por apurar</span>${pendente ? `${grande(Math.round(pendente))} de eleitores` : "nada"}</div>` : ""}
     </div>`);
 }
+
+// situação oficial na lista: eleito, 2º turno ou suplente (o resto é ruído)
+const situacaoLista = (c) => (/^eleit|turno|suplente/i.test(c.situacao || "") ? `<span class="sit"> · ${esc(c.situacao[0].toLowerCase() + c.situacao.slice(1))}</span>` : "");
 
 function renderCandidatos() {
   $("#candTitulo").textContent = visaoEstados() ? "Disputas" : "Candidatos";
@@ -1188,7 +1264,7 @@ function renderCandidatos() {
   definir(el, lista.slice(0, 150).map((c) => `
     <li><button type="button" class="crow${c.valido === false ? " anulado" : ""}" data-cand="${c.n}" aria-current="${c.n === st.cand}" style="--c:${corPartido(c.partido)}">
       ${avatar(c, 30)}
-      <span class="txt"><span class="nm">${esc(c.nome)}</span><span class="pm" style="--c:${corTexto(c.partido)}">${esc(c.partido)} ${esc(c.n)}</span></span>
+      <span class="txt"><span class="nm">${esc(c.nome)}</span><span class="pm" style="--c:${corTexto(c.partido)}">${esc(c.partido)} ${esc(c.n)}${situacaoLista(c)}</span></span>
       <span class="val">${pctTxt(c.pct)}<small>${fmt.format(c.votos)}</small></span>
       <span class="bar"><i style="width:${(c.votos / max * 100).toFixed(1)}%"></i></span>
     </button></li>`).join("") || `<li class="vazio">Nenhum candidato encontrado.</li>`);
@@ -1713,9 +1789,9 @@ function renderBusca() {
     </button></li>`).join("");
   el.innerHTML = status + htmlCidades + (res.map((c) => `
     <li><button type="button" role="option" data-busca="${c.cargo}|${c.uf}|${c.n}">
-      <span class="uft">${c.uf === "br" ? "BR" : c.uf.toUpperCase()}</span>
+      ${avatar(c, 34, false, c.uf, c.cargo)}
       <span class="b-nome">${esc(c.nome)}</span>
-      <span class="b-sub">${esc(tse.nomeCargo(c.cargo, c.uf))} · <span style="color:${corTexto(c.partido)}">${esc(c.partido)} ${esc(c.n)}</span> · ${esc(titulo(c.completo))}</span>
+      <span class="b-sub">${c.uf.toUpperCase()} · ${esc(tse.nomeCargo(c.cargo, c.uf))} · <span style="color:${corTexto(c.partido)}">${esc(c.partido)} ${esc(c.n)}</span> · ${esc(titulo(c.completo))}</span>
       <span class="b-num"><b>${pctTxt(c.pct)}</b><small>${fmt.format(c.votos)}</small></span>
     </button></li>`).join("") || (idx.pronto && !htmlCidades ? `<li class="vazio">Nenhum candidato ou município com esse nome.</li>` : ""));
 }
@@ -1748,7 +1824,7 @@ async function atualizarAoVivo() {
     if (r) st.resumoUF = r;
     if (ger !== st.geracao) return;
     if (st.mun) {
-      const l = doColetor() && st.linhasFeed && st.linhasFeed.get(st.mun);
+      const l = matrizNoFeed() && st.linhasFeed && st.linhasFeed.get(st.mun);
       st.resumo = l ? resultadoDaLinha(l) : tse.lerResultado(await tse.json(tse.url.resultado(st.cargo, st.uf, st.mun)));
     } else {
       st.resumo = st.resumoUF;
@@ -1760,7 +1836,7 @@ async function atualizarAoVivo() {
   $("#live").dataset.st = ok ? "ok" : "erro";
   renderTudo();
   // com coletor, a matriz da UF é um arquivo só e basta a cada 30 s
-  if (!doColetor() || Date.now() >= (st.proximaMatriz || 0)) {
+  if (!matrizNoFeed() || Date.now() >= (st.proximaMatriz || 0)) {
     st.proximaMatriz = Date.now() + 30e3;
     await carregarMatriz(ger, st.ctrl.signal, true);
   }
@@ -1975,10 +2051,9 @@ function ligarEventos() {
   document.addEventListener("error", (e) => {
     const img = e.target;
     if (img.tagName !== "IMG" || !img.parentElement || !img.parentElement.classList.contains("av")) return;
-    const b = document.createElement("b");
-    b.textContent = img.dataset.ini || "";
-    img.replaceWith(b);
+    trocarPorIniciais(img);
   }, true);
+  if (pastaFotos()) new MutationObserver(preencherFotos).observe(document.body, { childList: true, subtree: true });
 
   window.addEventListener("hashchange", () => {
     const alvo = { cargo: st.cargo, uf: st.uf, ...lerHash() };
