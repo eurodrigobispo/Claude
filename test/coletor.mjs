@@ -148,6 +148,9 @@ check("deputados em arquivo próprio", !zonas.cargos["6"] && zonas.proporcionais
 // carimbo do TSE: aaaammdd hh:mm:ss
 check("município refeito depois da meia-noite não volta para a fila", !coletor.precisaLer({ quando: "20261005 12:51:05" }, { hora: "04/10/2026 21:50:33" }));
 check("município atrás do índice volta para a fila", coletor.precisaLer({ quando: "20261004 21:40:00" }, { hora: "04/10/2026 21:50:33" }));
+// Amazonas, governador: índice às 05:04:52, arquivo totalizado às 04:59:33 e gerado às 06:08:31
+check("arquivo gerado depois do índice não volta para a fila", !coletor.precisaLer({ quando: "20261005 06:08:31" }, { hora: "05/10/2026 05:04:52" }));
+check("arquivo relido sem novidade espera antes de tentar de novo", !coletor.precisaLer({ quando: "20261004 21:40:00", espera: 2000 }, { hora: "04/10/2026 21:50:33" }, 1000));
 // Senado em Roraima, 1º turno de 2026: o TSE calcula 22,68% sobre os válidos
 // computados (vvc), que incluem 6.248 votos de candidatos sub judice
 const { lerResultado } = await import("../painel/js/tse.js");

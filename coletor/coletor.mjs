@@ -267,7 +267,7 @@ function linhaMun(r) {
   const votos = {};
   for (const c of r.cands) if (c.votos) votos[c.n] = c.votos;
   return {
-    quando: tse.carimbo(r), hora: r.hora, secoes: r.secoes.total, totalizadas: r.secoes.totalizadas,
+    quando: tse.geracao(r), hora: r.hora, secoes: r.secoes.total, totalizadas: r.secoes.totalizadas,
     eleitorado: r.eleitorado, eleitoradoApurado: r.eleitoradoApurado,
     comparecimento: r.comparecimento, abstencao: r.abstencao,
     validos: r.votos.validos, brancos: r.votos.brancos, nulos: r.votos.nulos, votos
@@ -277,11 +277,15 @@ function linhaMun(r) {
 let municipios = null;
 
 // O índice de andamento sai antes do arquivo de resultado: enquanto o arquivo
-// lido do município estiver atrás do índice, ele volta para a fila. Compara
-// data e hora, porque depois da meia-noite só a hora parece voltar no tempo.
-export function precisaLer(lido, andamento) {
+// lido do município tiver sido gerado antes do momento que o índice registra,
+// ele volta para a fila. Vale a geração do arquivo, não a hora de totalização
+// gravada nele: em 474 municípios o índice marca alguns minutos depois da
+// totalização, e o arquivo, gerado depois, nunca "alcançaria" o índice.
+// Compara data e hora (depois da meia-noite só a hora volta no tempo), e um
+// arquivo relido sem novidade espera 2 minutos antes da próxima tentativa.
+export function precisaLer(lido, andamento, agora = Date.now()) {
   if (!lido) return true;
-  if (!andamento) return false;
+  if (!andamento || (lido.espera && agora < lido.espera)) return false;
   const [data, hora] = andamento.hora.split(" ");
   return lido.quando < tse.carimbo({ data, hora });
 }
@@ -308,7 +312,13 @@ export async function lerMunicipios(limite = 1500) {
   await tse.fila(lote, async ({ cargo, uf, mun }) => {
     const r = tse.lerResultado(await pedir(tse.url.resultado(cargo, uf, mun)));
     if (!valido(r)) return;
-    estado.municipal.get(chave(cargo, uf)).set(mun, linhaMun(r));
+    const mapa = estado.municipal.get(chave(cargo, uf));
+    const antes = mapa.get(mun), linha = linhaMun(r);
+    if (antes && antes.quando === linha.quando) {
+      antes.espera = Date.now() + 120e3;
+      return;
+    }
+    mapa.set(mun, linha);
     ufsMudadas.add(chave(cargo, uf));
   }, { n: CONFIG.paralelo });
   for (const k of ufsMudadas) await gravarUf(k);
