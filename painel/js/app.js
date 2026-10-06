@@ -1104,7 +1104,10 @@ function renderPanoramaEstados() {
     <div class="hd"><h3>Panorama</h3><span class="aside">${esc(nomeCargo())} · Brasil</span></div>
     <div class="kpis">
       ${kpi("Eleitos", fmt.format(p.eleitos), st.cargo === "5" ? `de ${fmt.format(p.vagas)} vagas` : "de 27 estados", true)}
-      ${st.cargo === "5" ? kpi("Vagas", fmt.format(p.vagas), "duas por estado", true)
+      ${st.cargo === "5" ? (() => {
+          const d = p.disputas.filter((x) => x.fora).sort((a, b) => a.margem - b.margem)[0];
+          return d ? kpi("Mais apertada", tse.NOME_UF[d.uf], `${d.margem.toFixed(1).replace(".", ",")} pts entre o 2º e o 3º`, true) : "";
+        })()
         : kpi(tse.TURNO === 1 ? "2º turno" : "Em disputa", fmt.format(tse.TURNO === 1 ? p.segundo : p.apurando), "estados", true)}
       ${kpi("Em apuração", fmt.format(p.apurando), "estados")}
       ${kpi("Seções", pctTxt(Math.floor(p.pct * 10) / 10), `${fmt.format(p.totalizadas)} de ${fmt.format(p.total)}`)}
