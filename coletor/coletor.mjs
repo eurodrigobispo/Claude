@@ -184,6 +184,10 @@ export function textoEvento(e, nomeDe) {
   if (e.tipo === "segundo-turno") return `${nome} vai ao 2º turno na disputa pel${disputa(e.cargo, e.uf).startsWith("a ") ? "a" : "o"} ${disputa(e.cargo, e.uf).slice(2)}.`;
   if (e.tipo === "virada" && e.vagas > 1) return `${nome} passa ${nomeDe(e.antes)} e fica entre os ${e.vagas === 2 ? "dois" : e.vagas} mais votados na disputa pel${disputa(e.cargo, e.uf).startsWith("a ") ? "a" : "o"} ${disputa(e.cargo, e.uf).slice(2)}.`;
   if (e.tipo === "virada") return `${nome} passa ${nomeDe(e.antes)} e assume a liderança na disputa pel${disputa(e.cargo, e.uf).startsWith("a ") ? "a" : "o"} ${disputa(e.cargo, e.uf).slice(2)}.`;
+  if (e.tipo === "secoes" && e.lider && e.segundo) {
+    const p = ([n, v]) => `${nomeDe(n)} ${v.toFixed(1).replace(".", ",")}%`;
+    return `+${e.secoes.toLocaleString("pt-BR")} ${e.secoes === 1 ? "seção" : "seções"}: ${p(e.lider)}, ${p(e.segundo)}.`;
+  }
   if (e.tipo === "concluida") return `A apuração ${{ 1: "de presidente", 3: "de governador", 5: "do Senado" }[e.cargo]} ${em(e.uf)} chega a 100% das seções.`;
   return e.texto;
 }
@@ -196,6 +200,14 @@ function evento(e, nomeDe) {
 }
 
 export const eventos = () => estado.eventos;
+
+// Texto pelas regras atuais, também nos eventos retomados de uma versão
+// anterior, quando todos os nomes envolvidos são conhecidos.
+export function reescrito(e) {
+  const nome = (n) => ((estado.candidatos[`${e.cargo}-${e.uf}`] || []).find((c) => c.n === n) || {}).nome;
+  const nums = [e.n, e.antes, e.lider && e.lider[0], e.segundo && e.segundo[0]].filter(Boolean);
+  return nums.length && nums.every(nome) ? { ...e, texto: textoEvento(e, nome) } : e;
+}
 
 export function detectarEventos(k, antes, r) {
   const [cargo, uf] = k.split("-");
@@ -231,7 +243,6 @@ export function detectarEventos(k, antes, r) {
     evento({
       tipo: "secoes", cargo, uf, secoes: mais,
       lider: [a.n, +a.pct.toFixed(2)], segundo: [b.n, +b.pct.toFixed(2)],
-      texto: `+${mais.toLocaleString("pt-BR")} seções: ${a.nome} ${a.pct.toFixed(1).replace(".", ",")}%, ${b.nome} ${b.pct.toFixed(1).replace(".", ",")}%.`
     }, nomeDe);
   }
   // disputa chega a 100%
@@ -414,7 +425,7 @@ async function publicar() {
   await gravar("agora.json", agora);
   await gravar("candidatos.json", { versao: 1, turno, candidatos: estado.candidatos });
   await gravar("historico.json", { versao: 1, seq, turno, pleito, series: estado.historico });
-  await gravar("eventos.json", { versao: 1, seq, turno, pleito, eventos: estado.eventos.slice(0, 120) });
+  await gravar("eventos.json", { versao: 1, seq, turno, pleito, eventos: estado.eventos.slice(0, 120).map(reescrito) });
 
   // um retrato por minuto para rever a noite
   const minuto = agoraBrasilia().slice(0, 5).replace(":", "");

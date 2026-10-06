@@ -1172,7 +1172,7 @@ function renderCabecalho() {
   const r = visaoEstados() ? (() => { const p = placarEstados(); return p.total ? { secoes: { pct: p.pct, totalizadas: p.totalizadas, total: p.total }, hora: "" } : null; })() : st.resumo;
   $("#andamentoPct").textContent = r ? pctTxt(Math.floor(r.secoes.pct * 10) / 10) : "—";
   $("#andamentoBarra").style.width = r ? Math.min(100, r.secoes.pct) + "%" : "0";
-  $("#andamentoTxt").textContent = r ? `${fmt.format(r.secoes.totalizadas)} de ${fmt.format(r.secoes.total)} seções${r.hora ? ` · totalizado às ${r.hora}` : ""}` : "";
+  $("#andamentoTxt").textContent = r ? `${fmt.format(r.secoes.totalizadas)} de ${fmt.format(r.secoes.total)} seções${r.hora ? ` · totalizado ${r.data && r.data !== new Date().toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" }) ? `em ${r.data.slice(0, 5)} ` : ""}às ${r.hora}` : ""}` : "";
   $("#modoMapa").querySelectorAll("button").forEach((b) => {
     b.setAttribute("aria-pressed", String(b.dataset.modo === st.modo));
     b.disabled = b.dataset.modo === "candidato" && !st.cand;
@@ -1909,13 +1909,15 @@ setInterval(() => {
   const estado = $("#live").dataset.st;
   // na visão de estados não há placar único: vale a totalização mais recente
   const r = st.resumoUF || (visaoEstados() && [...st.nacionalR.values()].sort((a, b) => tse.carimbo(b).localeCompare(tse.carimbo(a)))[0]) || null;
+  // a data entra quando a totalização não é de hoje (o TSE refaz arquivos no dia seguinte)
+  const [d, m] = String((r && r.data) || "").split("/");
+  const hoje = new Date().toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" });
+  const dia = r && r.data && r.data !== hoje ? `${Number(d)}/${Number(m)}, ` : "";
   $("#liveTxt").textContent = estado === "erro" ? `Sem resposta do TSE · nova tentativa em ${resta}s`
     : estado === "carregando" ? "Atualizando…"
-    : r ? `${r.hora.slice(0, 5).replace(":", "h")} · ${pctTxt(Math.floor(r.secoes.pct * 10) / 10)}` : "Ao vivo";
-  if (estatico()) {
-    $("#live").dataset.st = "retrato";
-    $(".live .lw").textContent = "Retrato das ";
-  }
+    : r ? `${dia}${r.hora.slice(0, 5).replace(":", "h")} · ${pctTxt(Math.floor(r.secoes.pct * 10) / 10)}` : "Ao vivo";
+  if (estatico()) $("#live").dataset.st = "retrato";
+  $(".live .lw").textContent = estatico() ? (dia ? "Retrato de " : "Retrato das ") : dia ? "Atualizado em " : "Atualizado às ";
   $("#live").title = `${feed.ativo() ? "Dados do coletor" : "Leitura direta do TSE"} · próxima em ${resta}s`;
   if (st.proxima && Date.now() >= st.proxima && estado !== "carregando") atualizarAoVivo();
 }, 1000);

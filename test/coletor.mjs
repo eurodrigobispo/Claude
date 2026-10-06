@@ -118,7 +118,7 @@ const ev = lerFeed("eventos.json").eventos;
 const tipos = ev.map((e) => e.tipo);
 check("evento de eleito", ev.some((e) => e.tipo === "eleito" && e.uf === "ac" && e.texto.includes("vence a eleição para o governo do Acre")), JSON.stringify(ev.filter((e) => e.tipo === "eleito")));
 check("evento de virada", ev.some((e) => e.tipo === "virada" && e.uf === "ac" && e.cargo === "1" && e.texto.includes("na disputa pela Presidência no Acre")));
-check("evento de seções no placar nacional", ev.some((e) => e.tipo === "secoes" && e.secoes > 0));
+check("evento de seções no placar nacional", ev.some((e) => e.tipo === "secoes" && e.secoes > 0 && /^\+[\d.]+ (seção|seções): .+%, .+%\.$/.test(e.texto) && (e.secoes === 1) === e.texto.includes(" seção:")), JSON.stringify(ev.filter((e) => e.tipo === "secoes").map((e) => e.texto)));
 check("virada pela segunda vaga do Senado", ev.some((e) => e.tipo === "virada" && e.cargo === "5" && e.texto.includes("fica entre os dois mais votados na disputa pelo Senado pelo Acre")), JSON.stringify(ev.filter((e) => e.cargo === "5").map((e) => e.texto)));
 check("situação do Presidente num estado não vira evento", !ev.some((e) => e.cargo === "1" && e.uf !== "br" && (e.tipo === "segundo-turno" || e.tipo === "eleito")));
 check("histórico ganha ponto quando a apuração anda", lerFeed("historico.json").series["3-ac"].length === 2);
