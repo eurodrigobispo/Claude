@@ -176,6 +176,24 @@ export async function apurarCidade(uf, mun, zonas, { cache = new Map(), signal, 
 }
 
 /**
+ * O boletim registra como nominal o voto num número que saiu da disputa depois
+ * da carga das urnas (candidatura cancelada ou renúncia); o TSE conta esse voto
+ * como nulo técnico. Move para "nulo" os votos fora de `numeros` (candidatos e
+ * legendas que o TSE lista) e tira esses votos dos válidos.
+ */
+export function nulosTecnicos(grupos, numeros) {
+  return grupos.map((g) => {
+    let fora = 0;
+    for (const [k, v] of Object.entries(g.votos)) if (k !== "branco" && k !== "nulo" && k !== "outro" && !numeros.has(k)) fora += v;
+    if (!fora) return g;
+    const votos = {};
+    for (const [k, v] of Object.entries(g.votos)) if (k === "branco" || k === "nulo" || k === "outro" || numeros.has(k)) votos[k] = v;
+    votos.nulo = (votos.nulo || 0) + fora;
+    return { ...g, votos, validos: g.validos - fora };
+  });
+}
+
+/**
  * Agrupa as seções lidas por zona ou por local para um cargo.
  * Devolve [{chave, zona, local, secoes, comparecimento, validos, votos: {n: qtd}}]
  */

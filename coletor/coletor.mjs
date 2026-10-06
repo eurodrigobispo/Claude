@@ -247,7 +247,7 @@ function linhaMun(r) {
   const votos = {};
   for (const c of r.cands) if (c.votos) votos[c.n] = c.votos;
   return {
-    hora: r.hora, secoes: r.secoes.total, totalizadas: r.secoes.totalizadas,
+    quando: tse.carimbo(r), hora: r.hora, secoes: r.secoes.total, totalizadas: r.secoes.totalizadas,
     eleitorado: r.eleitorado, eleitoradoApurado: r.eleitoradoApurado,
     comparecimento: r.comparecimento, abstencao: r.abstencao,
     validos: r.votos.validos, brancos: r.votos.brancos, nulos: r.votos.nulos, votos
@@ -255,6 +255,16 @@ function linhaMun(r) {
 }
 
 let municipios = null;
+
+// O índice de andamento sai antes do arquivo de resultado: enquanto o arquivo
+// lido do município estiver atrás do índice, ele volta para a fila. Compara
+// data e hora, porque depois da meia-noite só a hora parece voltar no tempo.
+export function precisaLer(lido, andamento) {
+  if (!lido) return true;
+  if (!andamento) return false;
+  const [data, hora] = andamento.hora.split(" ");
+  return lido.quando < tse.carimbo({ data, hora });
+}
 
 // Percorre as UFs pelo índice de andamento e baixa só os municípios cuja hora
 // de totalização mudou. `limite` evita que um ciclo estoure o intervalo.
@@ -269,12 +279,8 @@ export async function lerMunicipios(limite = 1500) {
       const and = await tse.andamento(def.ele, uf);
       const mapa = estado.municipal.get(chave(cargo, uf)) || new Map();
       estado.municipal.set(chave(cargo, uf), mapa);
-      // o índice de andamento sai antes do arquivo de resultado: enquanto o
-      // arquivo do município estiver atrás do índice, ele volta para a fila
       for (const m of municipios[uf] || []) {
-        const a = and[m.cd];
-        const lido = mapa.get(m.cd);
-        if (!lido || (a && lido.hora < a.hora.split(" ")[1])) tarefas.push({ cargo, uf, mun: m.cd });
+        if (precisaLer(mapa.get(m.cd), and[m.cd])) tarefas.push({ cargo, uf, mun: m.cd });
       }
     }, { n: 6 });
   }
@@ -357,18 +363,27 @@ export async function lerZonas() {
   return pendente;
 }
 
+// Majoritários num arquivo só; cada cargo proporcional no seu
+// (`zonas/<uf>-<mun>-c6.json`), porque os deputados da capital paulista
+// passam de 10 MB e quem abre o Presidente não precisa baixá-los.
 async function gravarZonas(uf, mun, res) {
-  const cargos = {};
+  const base = {
+    versao: 1, gerado: new Date().toISOString(), uf, mun,
+    lidas: res.lidas, recebidas: res.recebidas, total: res.total, aguardando: res.aguardando
+  };
+  const enxuto = (g) => ({ zona: g.zona, local: g.local, secoes: g.secoes, comparecimento: g.comparecimento, validos: g.validos, votos: g.votos });
+  const cargos = {}, proporcionais = [];
   for (const cargo of ["1", "3", "5", "6", uf === "df" ? "8" : "7"]) {
-    const enxuto = (g) => ({ zona: g.zona, local: g.local, secoes: g.secoes, comparecimento: g.comparecimento, validos: g.validos, votos: g.votos });
     const zonas = agrupar(res.secoes, cargo, "zona").map(enxuto);
     if (!zonas.length) continue;
-    cargos[cargo] = { zonas, locais: agrupar(res.secoes, cargo, "local").map(enxuto) };
+    const g = { zonas, locais: agrupar(res.secoes, cargo, "local").map(enxuto) };
+    if (["1", "3", "5"].includes(cargo)) cargos[cargo] = g;
+    else {
+      proporcionais.push(cargo);
+      await gravar(`zonas/${uf}-${mun}-c${cargo}.json`, { ...base, cargo, ...g });
+    }
   }
-  await gravar(`zonas/${uf}-${mun}.json`, {
-    versao: 1, gerado: new Date().toISOString(), uf, mun,
-    lidas: res.lidas, recebidas: res.recebidas, total: res.total, aguardando: res.aguardando, cargos
-  });
+  await gravar(`zonas/${uf}-${mun}.json`, { ...base, proporcionais, cargos });
 }
 
 // ---------- publicação ----------
@@ -382,7 +397,11 @@ async function publicar() {
   const br = estado.corridas.get("1-br");
   const seq = Math.floor(Date.now() / 1000);
   const turno = tse.TURNO, pleito = tse.PLEITO;
-  const agora = { versao: 1, seq, gerado: new Date().toISOString(), hora: agoraBrasilia(), turno, pleito, totalizado: br ? br.hora : null, corridas };
+  // `municipais` diz ao painel quais cargos têm matriz em uf/<uf>-c<cargo>.json
+  const agora = {
+    versao: 1, seq, gerado: new Date().toISOString(), hora: agoraBrasilia(), turno, pleito,
+    totalizado: br ? br.hora : null, municipais: cargosMunicipais(), corridas
+  };
   await gravar("agora.json", agora);
   await gravar("candidatos.json", { versao: 1, turno, candidatos: estado.candidatos });
   await gravar("historico.json", { versao: 1, seq, turno, pleito, series: estado.historico });

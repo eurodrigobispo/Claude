@@ -33,13 +33,14 @@ const isoDe = (dt) => String(dt || "").split("/").reverse().join("-");
  * Devolve { pleito, federal, estadual, turno, data }; se o índice não
  * responder, mantém os códigos do 1º turno.
  */
-// Com window.PAINEL_CONFIG.tseLocal (ex.: "dados/tse/"), o índice de eleições
-// e a lista de municípios vêm de cópias locais (painel sem acesso ao TSE).
+// Com window.PAINEL_CONFIG.tseLocal (ex.: "dados/tse/"), cada JSON do TSE vem
+// de uma cópia local com o mesmo nome de arquivo (painel sem acesso ao TSE).
 const tseLocal = () => globalThis.PAINEL_CONFIG && globalThis.PAINEL_CONFIG.tseLocal;
+const local = (u) => (tseLocal() && u.startsWith(RAIZ) ? tseLocal() + u.slice(u.lastIndexOf("/") + 1) : u);
 
 export async function configurar({ turno } = {}) {
   try {
-    const d = await json(tseLocal() ? `${tseLocal()}ele-c.json` : `${RAIZ}/comum/config/ele-c.json`);
+    const d = await json(`${RAIZ}/comum/config/ele-c.json`);
     const opcoes = [];
     for (const p of d.pl || []) {
       if (p.c !== "ele2026") continue;
@@ -144,7 +145,7 @@ export async function json(u, { validade = 0, signal } = {}) {
     const m = memoria.get(u);
     if (m && Date.now() - m.t < validade) return m.p;
   }
-  const p = pedir(u, { signal }).then((r) => r.json());
+  const p = pedir(local(u), { signal }).then((r) => r.json());
   if (validade > 0) {
     memoria.set(u, { t: Date.now(), p });
     p.catch(() => memoria.delete(u));
@@ -238,8 +239,11 @@ export function lerResultado(d) {
     eleitoradoApurado: int(e.est),
     comparecimento: int(e.c),
     abstencao: int(e.a),
+    // válidos computados (vvc): os válidos mais os votos de candidatos com
+    // registro sub judice. É sobre eles que o TSE calcula os percentuais, e
+    // com eles válidos + brancos + nulos fecha com o total de votos.
     votos: {
-      total: int(v.tv), validos: int(v.vv), brancos: int(v.vb), nulos: int(v.tvn),
+      total: int(v.tv), validos: int(v.vvc) || int(v.vv), brancos: int(v.vb), nulos: int(v.tvn),
       legenda: int(v.vl), nominais: int(v.vnom)
     },
     cands
@@ -289,8 +293,7 @@ export const geracao = (r) => { const [d, h] = String(r.gerado || "").split(" ")
 // Lista de municípios: { uf: [{cd, ibge, nome, zonas, capital}] }
 export async function municipios() {
   // no começo do 2º turno o TSE pode ainda não ter a lista nova; a do 1º serve
-  const d = tseLocal() ? await json(`${tseLocal()}mun-e006257-cm.json`, { validade: 36e5 })
-    : await json(url.municipios(FEDERAL), { validade: 36e5 }).catch(() => json(url.municipios("6257"), { validade: 36e5 }));
+  const d = await json(url.municipios(FEDERAL), { validade: 36e5 }).catch(() => json(url.municipios("6257"), { validade: 36e5 }));
   const out = {};
   for (const a of d.abr || []) {
     out[a.cd] = (a.mu || []).map((m) => ({

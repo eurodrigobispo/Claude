@@ -54,7 +54,7 @@ parcial.s.st = String(Number(parcial.s.ts) - 10);
 parcial.s.pst = parcial.s.pstn = pctDe(Number(parcial.s.st), Number(parcial.s.ts));
 sobrescrito.set("ac-c0003-e006259-u.json", parcial);
 
-process.argv.push("--saida", saida, "--zonas", "ac:01066", "--municipios", "3", "--paralelo", "8");
+process.argv.push("--saida", saida, "--zonas", "ac:01066", "--zonas-cargos", "1,3,5,6,7", "--municipios", "3", "--paralelo", "8");
 const coletor = await import("../coletor/coletor.mjs");
 
 console.log("\nprimeiro ciclo");
@@ -125,6 +125,25 @@ await coletor.lerZonas();
 const zonas = lerFeed("zonas/ac-01066.json");
 check("zonas de Porto Walter lidas dos boletins", zonas.lidas === 4 && zonas.cargos["3"].zonas.length === 1, JSON.stringify({ lidas: zonas.lidas }));
 check("locais de votação somados", zonas.cargos["3"].locais.length >= 1 && zonas.cargos["3"].locais.every((l) => l.local));
+const dep = existsSync(join(saida, "zonas/ac-01066-c6.json")) ? lerFeed("zonas/ac-01066-c6.json") : null;
+check("deputados em arquivo próprio", !zonas.cargos["6"] && zonas.proporcionais.includes("6") && !!dep && dep.zonas.length === 1 && dep.lidas === 4, JSON.stringify(zonas.proporcionais));
+// carimbo do TSE: aaaammdd hh:mm:ss
+check("município refeito depois da meia-noite não volta para a fila", !coletor.precisaLer({ quando: "20261005 12:51:05" }, { hora: "04/10/2026 21:50:33" }));
+check("município atrás do índice volta para a fila", coletor.precisaLer({ quando: "20261004 21:40:00" }, { hora: "04/10/2026 21:50:33" }));
+// Senado em Roraima, 1º turno de 2026: o TSE calcula 22,68% sobre os válidos
+// computados (vvc), que incluem 6.248 votos de candidatos sub judice
+const { lerResultado } = await import("../painel/js/tse.js");
+const rr = lerResultado({
+  carg: [{ cd: "5", nv: "2", agr: [{ par: [{ sg: "PP", n: "11", cand: [{ n: "111", nmu: "NICOLETTI", vap: "138269", pvapn: "22,681438880", dvt: "Válido" }] }] }] }],
+  s: { ts: "1519", st: "1519", pstn: "100" }, e: { te: "400603", c: "331959", a: "68644" },
+  v: { tv: "663918", vvc: "609613", vv: "603365", vb: "21446", tvn: "32859", vansj: "6248" }
+});
+check("percentual sobre os válidos computados, como o TSE", Math.abs(rr.cands[0].votos / rr.votos.validos * 100 - rr.cands[0].pct) < 1e-6, String(rr.votos.validos));
+check("válidos, brancos e nulos fecham com o total", rr.votos.validos + rr.votos.brancos + rr.votos.nulos === rr.votos.total);
+// voto em candidatura cancelada depois da carga da urna: nulo técnico para o TSE
+const { nulosTecnicos } = await import("../painel/js/bu.js");
+const [nt] = nulosTecnicos([{ validos: 110, votos: { "13": 60, "99": 40, L13: 10, branco: 3, nulo: 2 } }], new Set(["13", "L13"]));
+check("nulo técnico sai dos válidos", nt.validos === 70 && nt.votos.nulo === 42 && !("99" in nt.votos) && nt.votos.L13 === 10, JSON.stringify(nt));
 check("validação aceita resultado coerente", coletor.valido({ cands: [{ votos: 5 }], secoes: { total: 2, totalizadas: 1 }, comparecimento: 10, votos: { total: 10, validos: 8, brancos: 1, nulos: 1, legenda: 0 } }));
 check("validação recusa votos negativos", !coletor.valido({ cands: [], secoes: { total: 2, totalizadas: 1 }, comparecimento: -1, votos: { total: 10, validos: 8, brancos: 1, nulos: 1, legenda: 0 } }));
 
