@@ -49,6 +49,32 @@ real:
    demais respondiam 404. A abertura por zona e local se completa ao longo da
    noite, e o painel mostra quantos boletins já entraram.
 
+### Regras de contagem conferidas contra o TSE
+
+Uma auditoria comparou o feed e a tela com os arquivos brutos do TSE depois do
+1º turno: as 83 disputas majoritárias e as 136 matrizes por município (os cinco
+cargos, deputados incluídos) batem voto a voto. Três regras saíram dela:
+
+1. **Percentual sobre os válidos computados (`vvc`).** O TSE soma aos válidos os
+   votos de candidatos com registro sub judice e calcula os percentuais sobre
+   esse total. Com `vv`, o percentual de Nicoletti no Senado de Roraima saía
+   22,92% em vez dos 22,68% oficiais. Com `vvc`, válidos + brancos + nulos
+   fecha com o total de votos.
+2. **Nulos técnicos.** O boletim registra como nominal o voto num número que
+   saiu da disputa depois da carga da urna; o TSE conta esse voto como nulo
+   técnico (`vnt`). Em Manaus foram 38.036 votos para o Senado. O painel tira
+   esses votos dos válidos ao somar zonas e locais (`nulosTecnicos` em `bu.js`).
+3. **Senado com duas vagas.** Em 2026 cada eleitor vota em dois senadores: a
+   disputa que importa é entre o 2º e o 3º, e a comparação com 2022 (uma vaga)
+   usa a fatia do eleitorado, os votos sobre metade dos válidos.
+
+A referência de 2022 é sempre do mesmo partido ou de um sucessor declarado
+(PTB e Patriota → PRD, PSC → Podemos, PMN → Mobiliza, PMB → Democrata, PROS →
+Solidariedade); o número sozinho não basta, porque o 14 do PTB hoje é do
+MISSÃO. Em 2022 os votos de candidatos anulados já tinham virado nulos, e em
+2026 os sub judice ainda contam como válidos: onde há muitos (274 mil votos no
+governo do Rio), o percentual de 2026 sai um pouco menor na comparação.
+
 ## 2. O que o protótipo faz hoje, sem servidor
 
 O painel (`painel/index.html`) é estático e lê tudo direto da fonte:
@@ -94,7 +120,7 @@ banco, servido por qualquer hospedagem estática ou CDN. Detalhes em
 | --- | --- |
 | `agora.json` a cada 15 s, com as 83 disputas majoritárias | 83 leituras do TSE por pessoa por minuto |
 | `uf/<uf>-c<cargo>.json` | até 853 arquivos municipais por UF |
-| `zonas/<uf>-<mun>.json` das capitais, em lotes de 1.500 boletins | a leitura de boletins no navegador, que parava em 3.000 seções |
+| `zonas/<uf>-<mun>.json` das capitais, em lotes de 1.500 boletins, e um `zonas/<uf>-<mun>-c<cargo>.json` por cargo de deputado | a leitura de boletins no navegador, que parava em 3.000 seções |
 | `historico.json` e `eventos.json` | (não existia: evolução da noite e últimas atualizações) |
 | `arquivo/<HHMM>.json` | (não existia: retrato de cada minuto) |
 
@@ -106,7 +132,15 @@ Medido na noite de 4/10, rodando nesta sessão:
   somados nos primeiros 10 minutos.
 
 O painel detecta o feed sozinho (em `../feed/` ou por `?feed=`) e, sem ele,
-volta a ler o TSE direto.
+volta a ler o TSE direto. O `agora.json` diz em `municipais` quais cargos têm
+matriz no feed; com `--municipios 1,3,5,6,7`, os deputados também saem dele.
+
+**Retrato estático.** A mesma página vira um retrato sem rede definindo
+`window.PAINEL_CONFIG` antes de carregar o painel: `estatico: true` (sem
+atualização), `feed` (pasta do feed), `malhas` (malhas do IBGE salvas),
+`tseLocal` (cada JSON do TSE é lido dessa pasta com o mesmo nome de arquivo),
+`fotos` (pacotes de fotos por UF e cargo, `{sq: "data:image/jpeg;base64,…"}`) e,
+opcionalmente, `cargos` para limitar os cargos.
 
 **Turnos.** Painel e coletor leem o índice de eleições do TSE
 (`comum/config/ele-c.json`) e escolhem o pleito mais recente cuja data já

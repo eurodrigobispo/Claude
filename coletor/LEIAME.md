@@ -56,12 +56,13 @@ o TSE direto, como antes.
 
 | Arquivo | Atualização | Conteúdo |
 | --- | --- | --- |
-| `agora.json` | a cada ciclo | Placar de Presidente (Brasil, UFs e exterior), Governador e Senador (UFs): seções, eleitorado, comparecimento, válidos, brancos, nulos, votos e situação de cada candidato |
+| `agora.json` | a cada ciclo | Placar de Presidente (Brasil, UFs e exterior), Governador e Senador (UFs): seções, eleitorado, comparecimento, válidos (computados, como o TSE), brancos, nulos, votos e situação de cada candidato; `municipais` lista os cargos com matriz por município |
 | `candidatos.json` | quando muda | Nome, partido, número, foto (`sq`) e vices de cada disputa |
 | `historico.json` | quando a apuração anda | Por disputa, pontos `[hora, % seções, {número: votos}, válidos]` dos seis primeiros |
 | `eventos.json` | a cada ciclo | Últimas 120 atualizações: `secoes`, `eleito`, `segundo-turno`, `virada`, `concluida` |
 | `uf/<uf>-c<cargo>.json` | quando um município muda | Todos os municípios da UF, em colunas alinhadas por `mun` |
-| `zonas/<uf>-<mun>.json` | a cada lote de 1.500 boletins | Zonas e locais de votação de cada cargo, somados dos boletins de urna |
+| `zonas/<uf>-<mun>.json` | a cada lote de 1.500 boletins | Zonas e locais de votação de Presidente, Governador e Senador, somados dos boletins de urna; `proporcionais` lista os cargos de deputado com arquivo próprio |
+| `zonas/<uf>-<mun>-c<cargo>.json` | a cada lote de 1.500 boletins | O mesmo para cada cargo de deputado (`--zonas-cargos 1,3,5,6,7`), separado porque os da capital paulista passam de 10 MB |
 | `arquivo/t<turno>/<HHMM>.json` | a cada minuto | Retrato do `agora.json`, com índice em `arquivo/t<turno>/indice.json` |
 | `estado.json` | a cada ciclo | Saúde: ciclos, pedidos, falhas, último erro, progresso das zonas |
 
@@ -77,7 +78,7 @@ nos últimos 2 minutos, 503 se não. Serve para o Docker ou um monitor externo.
   seções, ou votos que não fecham é descartado. O último resultado bom continua
   publicado, e um arquivo nunca substitui outro mais novo.
 - **Municípios:** segue o índice de andamento de cada UF e baixa só os
-  municípios cuja hora de totalização mudou.
+  municípios cuja totalização (data e hora) mudou.
 - **Zonas:** lê os boletins de urna das cidades configuradas em lotes,
   revezando entre elas. A seção que o TSE totalizou mas ainda não publicou fica
   como "aguardando" e entra na passada seguinte.
