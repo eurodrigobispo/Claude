@@ -68,6 +68,10 @@ o TSE direto, como antes.
 
 O servidor também responde `GET /api/saude`: 200 se o coletor gravou o placar
 nos últimos 2 minutos, 503 se não. Serve para o Docker ou um monitor externo.
+A resposta traz ainda `municipiosPendentes` e `zonasParadas`, as cidades com
+boletins por ler e sem avanço há mais de 10 minutos (pode ser só o TSE ainda
+sem publicar; se a lista não diminuir na noite da apuração, vale olhar os
+registros).
 
 ## Como ele conta
 

@@ -909,8 +909,9 @@ function pintarLocais() {
   const [x0, y0, x1, y1] = area.caixa;
   const folga = Math.max(x1 - x0, y1 - y0) * 0.05 + 1;
   const vor = Delaunay.from(itens, (i) => i.x, (i) => i.y).voronoi([x0 - folga, y0 - folga, x1 + folga, y1 + folga]);
+  const pols = itens.map((_, i) => vor.cellPolygon(i));
   const celulas = itens.map((it, i) => {
-    const pol = vor.cellPolygon(i);
+    const pol = pols[i];
     if (!pol) return "";
     const apagado = st.zona && it.gr.zona !== st.zona ? " apagado" : "";
     return `<path class="celula${apagado}" data-local="${it.gr.chave}" d="M${pol.map(([px, py]) => px.toFixed(2) + " " + py.toFixed(2)).join("L")}Z" style="fill:${it.cor};stroke:${it.cor}"></path>`;
@@ -934,7 +935,7 @@ function pintarLocais() {
     z.x += it.x * p; z.y += it.y * p; z.p += p;
     porZona.set(it.gr.zona, z);
   }
-  gz.innerHTML = porZona.size > 1 ? [...porZona.entries()].map(([z, v]) =>
+  gz.innerHTML = porZona.size > 1 ? `<path class="fronteira" clip-path="url(#recorteCidade)" d="${fronteirasDeZona(itens, pols, vor)}"></path>` + [...porZona.entries()].map(([z, v]) =>
     `<text class="${st.zona && st.zona !== z ? "apagado" : ""}" x="${(v.x / v.p).toFixed(2)}" y="${(v.y / v.p).toFixed(2)}" text-anchor="middle" data-r="1">${z}</text>`).join("") : "";
 
   $("#gArea").classList.add("com-locais");
@@ -943,6 +944,24 @@ function pintarLocais() {
     zoom.focar(caixaNucleo(itens.map((i) => ({ x: i.x, y: i.y, peso: i.gr.comparecimento }))), 1.5);
   }
   reescalar(zoom ? zoom.escala() : 1);
+}
+
+// Divisas entre zonas: o lado comum de duas áreas vizinhas (Voronoi dos locais)
+// que pertencem a zonas diferentes. É aproximado como as áreas, mas mostra onde
+// cada zona começa e termina.
+function fronteirasDeZona(itens, pols, vor) {
+  const ponto = (p) => `${p[0].toFixed(3)},${p[1].toFixed(3)}`;
+  const d = [];
+  for (let i = 0; i < itens.length; i++) {
+    if (!pols[i]) continue;
+    for (const j of vor.delaunay.neighbors(i)) {
+      if (j <= i || !pols[j] || itens[i].gr.zona === itens[j].gr.zona) continue;
+      const emJ = new Set(pols[j].map(ponto));
+      const comuns = pols[i].slice(0, -1).filter((p) => emJ.has(ponto(p)));
+      if (comuns.length >= 2) d.push(`M${comuns[0][0].toFixed(2)} ${comuns[0][1].toFixed(2)}L${comuns[1][0].toFixed(2)} ${comuns[1][1].toFixed(2)}`);
+    }
+  }
+  return d.join("");
 }
 
 // caixa dos locais que somam 85% dos votantes, mais perto do centro de massa:
@@ -1462,7 +1481,9 @@ async function preencherLeitura(c, linhas, p) {
       <p class="nota">Nos mesmos ${fmt.format(comp.municipios)} ${porEstado() ? "estados" : "municípios"}, sobre os válidos. Correlação geográfica: ${Number.isFinite(comp.correlacao) ? comp.correlacao.toFixed(2).replace(".", ",") : "—"}.</p>
       ${comp.ganhos.length ? `<h4>Onde mais avançou</h4>${ranking(comp.ganhos, (l) => pp(l.delta), (l) => `${pctTxt(l.p22)} → ${pctTxt(l.p26)}`, "var(--fg)")}` : ""}
       ${comp.perdas.length ? `<h4>Onde mais recuou</h4>${ranking(comp.perdas, (l) => pp(l.delta), (l) => `${pctTxt(l.p22)} → ${pctTxt(l.p26)}`, "var(--fg-3)")}` : ""}`
-      : (["6", "7"].includes(st.cargo) ? `<div class="hd"><h3>Contra 2022</h3></div><p class="nota">Nesta versão a comparação histórica cobre Presidente, Governador e Senador.</p>` : "");
+      : ["6", "7"].includes(st.cargo) ? `<div class="hd"><h3>Contra 2022</h3></div><p class="nota">Nesta versão a comparação histórica cobre Presidente, Governador e Senador.</p>`
+      : tse.TURNO === 2 && st.cargo === "3" && st.uf !== "br" ? `<div class="hd"><h3>Contra 2022</h3></div><p class="nota">Em 2022 não houve 2º turno para governador neste estado, então não há base de comparação.</p>`
+      : "";
   }
   st.comp = comp;
   if (st.tabela.aba === "areas") renderTabela();

@@ -385,6 +385,7 @@ export async function lerZonas() {
       if (!zonas) continue;
       const cargos = CONFIG.cargosZonas.flatMap((c) => (c === "7" ? ["7", "8"] : [c]));
       const res = await apurarCidade(uf, mun, zonas, { cache: z.cache, limite: LOTE_ZONAS, cargos });
+      if (!z.res || res.lidas !== z.res.lidas) z.avancou = new Date().toISOString();
       z.res = res;
       // cidade completa (ou só com boletins ainda não publicados): volta em 1 min
       const completa = res.baixadas < LOTE_ZONAS;
@@ -464,7 +465,7 @@ async function publicar() {
 
 async function publicarSaude() {
   const zonas = {};
-  for (const [k, z] of estado.zonas) if (z.res) zonas[k] = { lidas: z.res.lidas, recebidas: z.res.recebidas };
+  for (const [k, z] of estado.zonas) if (z.res) zonas[k] = { lidas: z.res.lidas, recebidas: z.res.recebidas, avancou: z.avancou || null };
   await gravar("estado.json", { ...estado.saude, zonas, config: { ...CONFIG } });
 }
 

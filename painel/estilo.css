@@ -177,6 +177,7 @@ button { cursor: pointer; }
   pointer-events: none;
 }
 #gZonas text.apagado { opacity: .35; }
+#gZonas .fronteira { fill: none; stroke: var(--fg); stroke-opacity: .5; stroke-width: 1.2px; vector-effect: non-scaling-stroke; pointer-events: none; }
 
 .mapa-vazio {
   position: absolute;

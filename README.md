@@ -57,7 +57,10 @@ node test/smoke.mjs
 
 ---
 
-# Apuração 2026
+# Apuração 2026 (protótipo)
+
+> Primeira versão, de arquivo único, feita para o 1º turno. Ela não acompanha
+> o 2º turno; para a apuração use o **Painel Eleitoral 2026**, mais abaixo.
 
 Painel ao vivo da apuração das Eleições 2026 (1º turno, 4 de outubro), lendo
 direto os arquivos de divulgação do TSE em `resultados.tse.jus.br`.
@@ -145,7 +148,7 @@ não carregam de `file://`). O painel fica em
 - **Leitura estratégica**:
   - concentração do voto, perfil por porte de município e redutos;
   - onde o candidato perde terreno e onde há voto a conquistar;
-  - variação contra 2022, pelo mesmo número ou pelo mesmo partido.
+  - variação contra 2022, sempre contra o mesmo partido (ou o que ele sucedeu).
 - **Tabelas** ordenáveis de municípios, zonas e locais.
 
 ## Dados

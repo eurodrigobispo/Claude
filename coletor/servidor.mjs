@@ -144,7 +144,15 @@ const servidor = createServer(async (req, res) => {
       try {
         const e = JSON.parse(await readFile(join(FEED, "estado.json"), "utf8"));
         const atraso = Math.round((Date.now() - Date.parse(e.ultimaLeitura)) / 1000);
-        corpo = { ok: atraso < 120, atrasoSegundos: atraso, ultimaLeitura: e.ultimaLeitura, ciclos: e.ciclos, falhas: e.falhas, ultimoErro: e.ultimoErro };
+        // o código de resposta segue o placar; zonas e municípios vão como
+        // informação, para um monitor externo ver uma leitura parada
+        const paradas = Object.entries(e.zonas || {})
+          .filter(([, z]) => z.lidas < z.recebidas && z.avancou && Date.now() - Date.parse(z.avancou) > 600e3)
+          .map(([k, z]) => `${k} ${z.lidas}/${z.recebidas}`);
+        corpo = {
+          ok: atraso < 120, atrasoSegundos: atraso, ultimaLeitura: e.ultimaLeitura, ciclos: e.ciclos, falhas: e.falhas, ultimoErro: e.ultimoErro,
+          municipiosPendentes: e.municipiosPendentes ?? null, zonasParadas: paradas
+        };
       } catch (_) { /* coletor ainda não gravou nada */ }
       if (!coletando && !corpo.ok) corpo = { ok: true, motivo: "servidor sem coletor" };
       res.writeHead(corpo.ok ? 200 : 503, { "content-type": "application/json", "cache-control": "no-store" });
