@@ -106,6 +106,7 @@ O primeiro certificado HTTPS leva até um minuto. Se o domínio ainda não apont
 | Parar | `docker compose -f deploy/docker-compose.yml --env-file deploy/.env down` |
 | Atualizar para um pacote novo | `sudo unzip -o novo.zip -d /opt/painel-eleitoral` e rode o passo 6 de novo (o `deploy/.env` e o histórico são mantidos) |
 | Guardar o histórico da noite | `docker compose -f deploy/docker-compose.yml cp painel:/app/feed ./feed-backup` |
+| Gerar o zip a partir do repositório (no seu computador) | `npm run pacote` |
 
 O contêiner reinicia sozinho se cair ou se o servidor reiniciar. O Docker também confere `/api/saude` a cada 30 s: se o coletor ficar 2 minutos sem gravar o placar, o contêiner é marcado como doente.
 
