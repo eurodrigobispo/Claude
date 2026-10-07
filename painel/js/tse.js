@@ -120,13 +120,53 @@ export class ErroHttp extends Error {
   }
 }
 
-async function pedir(u, { signal, prazo = 20000 } = {}) {
+// Regra do TSE para 2026: no máximo 100 pedidos por segundo por IP; quem passa
+// disso fica bloqueado por 10 minutos, e cada tentativa durante o bloqueio
+// reinicia a contagem. Todo pedido ao TSE passa por aqui, numa janela de 1 s
+// com teto bem abaixo do limite: 60 no coletor (12 deles reservados ao placar,
+// que nunca espera os boletins) e 40 por pessoa no navegador. A janela conta
+// a hora real do envio, porque com o coletor ocupado somando boletins vários
+// pedidos já liberados saem juntos.
+let teto = typeof window === "undefined" ? 60 : 40;
+const reserva = () => Math.min(15, Math.floor(teto * 0.2));
+export function limitarPedidos(porSegundo) { teto = Math.max(5, Number(porSegundo) || teto); }
+const janela = [];
+const dormir = (ms) => new Promise((ok) => setTimeout(ok, ms));
+async function vez(prioridade) {
+  for (;;) {
+    const agora = Date.now();
+    while (janela.length && agora - janela[0].t >= 1000) janela.shift();
+    if (janela.length < (prioridade ? teto : teto - reserva())) {
+      const marca = { t: agora };
+      janela.push(marca);
+      return marca;
+    }
+    await dormir(1000 - (agora - janela[0].t) + 2);
+  }
+}
+
+// Recusas seguidas (403 ou 429) indicam bloqueio do IP pelo TSE: insistir só
+// reinicia o bloqueio, então nenhum pedido sai por 11 minutos.
+let recusas = 0, pausaAte = 0;
+export const bloqueadoAte = () => (Date.now() < pausaAte ? pausaAte : 0);
+// para testes, ou depois de trocar o IP de saída
+export function liberarBloqueio() { pausaAte = 0; recusas = 0; }
+
+async function pedir(u, { signal, prazo = 20000, prioridade = false } = {}) {
+  if (Date.now() < pausaAte) throw new ErroHttp(429, u);
+  const marca = await vez(prioridade);
+  marca.t = Date.now();
   const ctrl = new AbortController();
   const t = setTimeout(() => ctrl.abort(), prazo);
   const desistir = () => ctrl.abort();
   signal?.addEventListener("abort", desistir, { once: true });
   try {
     const r = await fetch(u, { cache: "no-cache", signal: ctrl.signal });
+    if (r.status === 403 || r.status === 429) {
+      if (++recusas >= 3) { pausaAte = Date.now() + 11 * 60e3; recusas = 0; }
+    } else {
+      recusas = 0;
+    }
     if (!r.ok) throw new ErroHttp(r.status, u);
     return r;
   } finally {
@@ -140,12 +180,13 @@ const memoria = new Map();
 // JSON com memória curta opcional: com `validade` > 0, pedidos repetidos dentro
 // desse prazo reaproveitam a mesma resposta. Sem validade nada fica guardado,
 // para a matriz de municípios não reter o JSON inteiro de cada arquivo.
-export async function json(u, { validade = 0, signal } = {}) {
+export async function json(u, { validade = 0, signal, prioridade = false } = {}) {
   if (validade > 0) {
     const m = memoria.get(u);
     if (m && Date.now() - m.t < validade) return m.p;
   }
-  const p = pedir(local(u), { signal }).then((r) => r.json());
+  // as cópias locais de um retrato não contam no limite do TSE
+  const p = (local(u) !== u ? fetch(local(u)).then((r) => { if (!r.ok) throw new ErroHttp(r.status, u); return r; }) : pedir(u, { signal, prioridade })).then((r) => r.json());
   if (validade > 0) {
     memoria.set(u, { t: Date.now(), p });
     p.catch(() => memoria.delete(u));

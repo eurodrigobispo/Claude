@@ -35,6 +35,7 @@ node coletor/coletor.mjs --saida /var/www/feed
 | `--zonas` | `capitais` | Cidades com zonas lidas dos boletins: `capitais`, `nenhuma` ou lista `sp:71072,rj:60011` |
 | `--zonas-cargos` | `1,3,5` | Cargos somados nas zonas (`6,7` acrescenta deputados e multiplica a memória) |
 | `--paralelo` | `12` | Pedidos simultâneos ao TSE |
+| `--limite-tse` | `60` | Pedidos por segundo ao TSE, somando placar, municípios e boletins (12 reservados ao placar). O TSE bloqueia por 10 minutos o IP que passa de 100 |
 | `--turno` | automático | Força `1` ou `2`; sem ela, o coletor segue o índice de eleições do TSE e troca sozinho quando o 2º turno for publicado |
 | `--uma-vez` | | Faz um ciclo e sai |
 
@@ -72,6 +73,22 @@ A resposta traz ainda `municipiosPendentes` e `zonasParadas`, as cidades com
 boletins por ler e sem avanço há mais de 10 minutos (pode ser só o TSE ainda
 sem publicar; se a lista não diminuir na noite da apuração, vale olhar os
 registros).
+
+## Limites do TSE
+
+Para 2026 o TSE aceita no máximo 100 pedidos por segundo por IP; acima disso o
+IP fica bloqueado por 10 minutos, e cada tentativa durante o bloqueio reinicia
+a contagem. Erros 404 em excesso também podem bloquear. Por isso:
+- todo pedido passa por um limitador (`--limite-tse`, 60 por segundo; no
+  navegador, 40 por pessoa);
+- três recusas seguidas (403 ou 429) param todos os pedidos por 11 minutos, e
+  `/api/saude` mostra até quando em `bloqueadoPeloTseAte`;
+- um boletim só é pedido um minuto depois de a seção chegar ao TSE, dos mais
+  antigos para os mais novos, e cada 404 dobra a espera daquela seção (de
+  90 s até 10 min).
+
+Com esse ritmo, a primeira passada pelas zonas de todas as capitais leva cerca
+de 1h30 depois de os boletins saírem; a capital paulista sozinha, uns 40 min.
 
 ## Como ele conta
 

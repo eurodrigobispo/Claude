@@ -63,6 +63,7 @@ Troque `DOMINIO` e `EMAIL`. As demais opções podem ficar como estão:
 | `DOMINIO` | | Endereço do painel, já apontado para o servidor |
 | `EMAIL` | | Usado pelo Let's Encrypt para o certificado HTTPS |
 | `PARALELO` | `12` | Pedidos simultâneos ao TSE |
+| `LIMITE_TSE` | `60` | Pedidos por segundo ao TSE, somando tudo. O TSE bloqueia por 10 minutos o IP que passa de 100 por segundo: não suba este número e não rode dois coletores no mesmo IP |
 | `ZONAS` | `capitais` | Cidades com zonas lidas dos boletins: `capitais`, `nenhuma` ou lista `sp:71072,rj:60011` |
 | `ZONAS_CARGOS` | `1,3,5,6,7` | Cargos somados nas zonas e locais; `1,3,5` deixa os deputados só por município e economiza uns 1,5 GB de memória |
 | `MUNICIPIOS` | `1,3,5,6,7` | Cargos com matriz por município; sem `6,7`, cada navegador lê os deputados direto do TSE |
@@ -178,7 +179,8 @@ https://<usuário>.github.io/<repositório>/painel/?feed=https://apuracao.seudom
 | --- | --- |
 | `/api/saude` responde 503 | O coletor não está conseguindo ler o TSE. Veja os registros; costuma ser rede ou firewall de saída |
 | O painel diz "Leitura direta do TSE" | O painel não achou `/feed/`. Abra pelo domínio do servidor, ou use `?feed=` |
-| Zonas de uma capital ainda vazias | O coletor lê os boletins em lotes de 1.500, revezando entre as capitais. Com deputados, a capital paulista leva de 30 a 50 minutos na primeira passada; a página mostra quantos boletins já foram somados |
+| Zonas de uma capital ainda vazias | O coletor lê os boletins em lotes de 1.500, revezando entre as capitais, sem passar do limite de pedidos do TSE. A capital paulista leva uns 40 minutos depois de os boletins saírem; a página mostra quantos já foram somados |
+| `/api/saude` mostra `bloqueadoPeloTseAte` | O TSE bloqueou o IP do servidor (mais de 100 pedidos por segundo, ou 404 demais). O coletor para sozinho até a hora indicada; confira se não há outro coletor ou outro sistema usando o mesmo IP |
 | Certificado não sai | O domínio ainda não aponta para o IP, ou as portas 80 e 443 estão fechadas |
 | Memória alta ou contêiner reiniciando | Use `ZONAS_CARGOS=1,3,5` (deputados só por município) ou diminua `ZONAS` (algumas capitais) |
 

@@ -151,7 +151,8 @@ const servidor = createServer(async (req, res) => {
           .map(([k, z]) => `${k} ${z.lidas}/${z.recebidas}`);
         corpo = {
           ok: atraso < 120, atrasoSegundos: atraso, ultimaLeitura: e.ultimaLeitura, ciclos: e.ciclos, falhas: e.falhas, ultimoErro: e.ultimoErro,
-          municipiosPendentes: e.municipiosPendentes ?? null, zonasParadas: paradas
+          municipiosPendentes: e.municipiosPendentes ?? null, zonasParadas: paradas,
+          bloqueadoPeloTseAte: e.bloqueadoPeloTseAte || null
         };
       } catch (_) { /* coletor ainda não gravou nada */ }
       if (!coletando && !corpo.ok) corpo = { ok: true, motivo: "servidor sem coletor" };

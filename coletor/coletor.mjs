@@ -41,6 +41,9 @@ export const CONFIG = {
   // cargos guardados por seção nas zonas; deputados multiplicam a memória
   cargosZonas: opcao("zonas-cargos", "1,3,5").split(",").filter(Boolean),
   paralelo: Number(opcao("paralelo", 12)),
+  // pedidos por segundo ao TSE, somando placar, municípios e boletins (o TSE
+  // bloqueia por 10 min acima de 100 por segundo por IP)
+  limiteTse: Number(opcao("limite-tse", 60)),
   // turno forçado; sem ele, o coletor segue o índice do TSE e troca sozinho
   turno: Number(opcao("turno", 0)) || 0,
   umaVez: bandeira("uma-vez")
@@ -89,10 +92,10 @@ async function lerJsonLocal(rel, padrao) {
   }
 }
 
-async function pedir(u) {
+async function pedir(u, opcoes) {
   estado.saude.pedidos++;
   try {
-    return await tse.json(u);
+    return await tse.json(u, opcoes);
   } catch (e) {
     if (e.status !== 404) estado.saude.falhas++;
     throw e;
@@ -137,7 +140,7 @@ async function lerMajoritarios() {
   for (const [cargo, ufs] of majoritarios()) for (const uf of ufs) pedidos.push({ cargo, uf });
   const novos = new Map();
   await tse.fila(pedidos, async ({ cargo, uf }) => {
-    const r = tse.lerResultado(await pedir(tse.url.resultado(cargo, uf)));
+    const r = tse.lerResultado(await pedir(tse.url.resultado(cargo, uf), { prioridade: true }));
     if (valido(r)) novos.set(chave(cargo, uf), r);
   }, { n: CONFIG.paralelo });
 
@@ -466,7 +469,8 @@ async function publicar() {
 async function publicarSaude() {
   const zonas = {};
   for (const [k, z] of estado.zonas) if (z.res) zonas[k] = { lidas: z.res.lidas, recebidas: z.res.recebidas, avancou: z.avancou || null };
-  await gravar("estado.json", { ...estado.saude, zonas, config: { ...CONFIG } });
+  const bloqueio = tse.bloqueadoAte();
+  await gravar("estado.json", { ...estado.saude, bloqueadoPeloTseAte: bloqueio ? new Date(bloqueio).toISOString() : null, zonas, config: { ...CONFIG } });
 }
 
 // ---------- ciclos ----------
@@ -572,6 +576,7 @@ async function conferirTurno() {
 
 export async function iniciar() {
   await mkdir(CONFIG.saida, { recursive: true });
+  tse.limitarPedidos(CONFIG.limiteTse);
   const t = await tse.configurar({ turno: CONFIG.turno });
   console.log(`[${agoraBrasilia()}] pleito ${t.pleito}, ${t.turno}º turno (federal ${t.federal}, estadual ${t.estadual})`);
   proximaConferencia = Date.now() + 600e3;

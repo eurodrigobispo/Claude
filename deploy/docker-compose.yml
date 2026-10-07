@@ -11,7 +11,7 @@ services:
       - PORT=8080
       # com deputados nas zonas das capitais o coletor passa de 2 GB
       - NODE_OPTIONS=--max-old-space-size=${MEMORIA_MB:-3072}
-    command: ["node", "coletor/servidor.mjs", "--coletar", "--saida", "/app/feed", "--paralelo", "${PARALELO:-12}", "--zonas", "${ZONAS:-capitais}", "--zonas-cargos", "${ZONAS_CARGOS:-1,3,5,6,7}", "--municipios", "${MUNICIPIOS:-1,3,5,6,7}", "--turno", "${TURNO:-0}", "--usuario", "node"]
+    command: ["node", "coletor/servidor.mjs", "--coletar", "--saida", "/app/feed", "--paralelo", "${PARALELO:-12}", "--limite-tse", "${LIMITE_TSE:-60}", "--zonas", "${ZONAS:-capitais}", "--zonas-cargos", "${ZONAS_CARGOS:-1,3,5,6,7}", "--municipios", "${MUNICIPIOS:-1,3,5,6,7}", "--turno", "${TURNO:-0}", "--usuario", "node"]
     volumes:
       - feed:/app/feed
     healthcheck:

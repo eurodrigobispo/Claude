@@ -163,10 +163,31 @@ check("percentual sobre os válidos computados, como o TSE", Math.abs(rr.cands[0
 check("válidos, brancos e nulos fecham com o total", rr.votos.validos + rr.votos.brancos + rr.votos.nulos === rr.votos.total);
 // lote de boletins: seção que voltou 404 espera, e o lote avança para as outras
 const { escolherPendentes } = await import("../painel/js/bu.js");
-const secoesTeste = Array.from({ length: 5 }, (_, i) => ({ zona: "1", ns: String(i + 1), recebida: "t" }));
-const esperaTeste = new Map([["1/1@t", 2000], ["1/2@t", 2000], ["1/3@t", 500]]);
-const lote = escolherPendentes(secoesTeste, new Map([["1/4", { recebida: "t" }]]), esperaTeste, 2, 1000).map((s) => s.ns);
-check("lote pula boletins em espera e começa pelos nunca tentados", lote.join(",") === "5,3", lote.join(","));
+// seções recebidas às 18:00 (a 6 recebida há 30 s); agora = 18:10 em Brasília
+const agoraTeste = Date.parse("2026-10-04T18:10:00-03:00");
+const secoesTeste = Array.from({ length: 6 }, (_, i) => ({ zona: "1", ns: String(i + 1), recebida: i === 5 ? "04/10/2026 18:09:30" : `04/10/2026 18:0${5 - i}:00` }));
+const k = (s) => `1/${s.ns}@${s.recebida}`;
+const esperaTeste = new Map([[k(secoesTeste[0]), { n: 1, ate: agoraTeste + 60e3 }], [k(secoesTeste[1]), { n: 1, ate: agoraTeste + 60e3 }], [k(secoesTeste[2]), { n: 2, ate: agoraTeste - 1 }]]);
+const lote = escolherPendentes(secoesTeste, new Map([["1/4", { recebida: secoesTeste[3].recebida }]]), esperaTeste, 2, agoraTeste).map((s) => s.ns);
+check("lote pula boletins em espera, recém-chegados e começa pelos nunca tentados", lote.join(",") === "5,3", lote.join(","));
+
+// limite do TSE: os pedidos se espalham pela janela de 1 s
+const tseMod = await import("../painel/js/tse.js");
+tseMod.limitarPedidos(20);
+const t0Limite = Date.now();
+await Promise.all(Array.from({ length: 40 }, () => tseMod.json(tseMod.url.resultado("3", "ac")).catch(() => null)));
+const durou = Date.now() - t0Limite;
+tseMod.limitarPedidos(60);
+check("pedidos ao TSE respeitam o teto por segundo", durou >= 2000, `${durou} ms para 40 pedidos a 16/s`);
+// três recusas seguidas: o IP foi bloqueado, e nada sai por 11 minutos
+const recusa = globalThis.fetch;
+globalThis.fetch = async (u, o) => (String(u).includes("/bloqueio/") ? new Response("", { status: 403 }) : recusa(u, o));
+for (let i = 0; i < 3; i++) await tseMod.json("https://resultados.tse.jus.br/oficial/bloqueio/x.json").catch(() => null);
+const pedidosAntes = pedidosTse.length;
+const erroBloqueio = await tseMod.json(tseMod.url.resultado("3", "ac")).catch((e) => e);
+check("bloqueio do TSE pausa os pedidos", tseMod.bloqueadoAte() > Date.now() + 600e3 && erroBloqueio.status === 429 && pedidosTse.length === pedidosAntes);
+globalThis.fetch = recusa;
+tseMod.liberarBloqueio();
 
 // voto em candidatura cancelada depois da carga da urna: nulo técnico para o TSE
 const { nulosTecnicos } = await import("../painel/js/bu.js");

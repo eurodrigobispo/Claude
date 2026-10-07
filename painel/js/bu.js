@@ -116,28 +116,39 @@ export function lerBU(b) {
 
 // ---------- apuração de uma cidade ----------
 
-// Seção totalizada cujo boletim ainda não saiu (404) espera um pouco antes do
-// próximo pedido. Sem isso, um lote com 1.500 seções nessa situação se repetia
-// sem fim: na noite do 1º turno, a capital paulista ficou parada em 727 de
-// 26.683 boletins das 21h43 às 22h45.
-const ESPERA_404 = 90e3;
+// Seção totalizada cujo boletim ainda não saiu (404) espera antes do próximo
+// pedido: 90 s, depois o dobro a cada nova recusa, até 10 min. Sem isso, um
+// lote com 1.500 seções nessa situação se repetia sem fim (na noite do 1º
+// turno, a capital paulista ficou parada em 727 de 26.683 boletins das 21h43
+// às 22h45), e o TSE pode bloquear o IP que acumula 404.
+const ESPERA_404 = 90e3, ESPERA_MAX = 600e3;
+// o boletim costuma sair alguns minutos depois de a seção chegar ao TSE
+const IDADE_MINIMA = 60e3;
 const chaveEspera = (s) => `${s.zona}/${s.ns}@${s.recebida}`;
+// "dd/mm/aaaa hh:mm:ss" no horário de Brasília
+export function horaRecebida(txt) {
+  const m = /^(\d{2})\/(\d{2})\/(\d{4}) (\d{2}:\d{2}:\d{2})$/.exec(txt || "");
+  return m ? Date.parse(`${m[3]}-${m[2]}-${m[1]}T${m[4]}-03:00`) : NaN;
+}
 
 /**
  * Escolhe até `limite` seções a baixar: as que ainda não estão no cache (ou
- * chegaram de novo), fora as que esperam depois de um 404; primeiro as nunca
- * tentadas, depois as que esperam há mais tempo.
+ * chegaram de novo), recebidas há pelo menos um minuto e fora da espera depois
+ * de um 404; primeiro as nunca tentadas, das que chegaram antes às mais novas,
+ * depois as que esperam há mais tempo.
  */
 export function escolherPendentes(recebidas, cache, espera, limite = Infinity, agora = Date.now()) {
   const fila = [];
   for (const s of recebidas) {
     if (cache.get(`${s.zona}/${s.ns}`)?.recebida === s.recebida) continue;
-    const ate = espera.get(chaveEspera(s)) || 0;
-    if (ate > agora) continue;
-    fila.push([ate, s]);
+    const e = espera.get(chaveEspera(s));
+    if (e && e.ate > agora) continue;
+    const quando = horaRecebida(s.recebida);
+    if (agora - quando < IDADE_MINIMA) continue;
+    fila.push([e ? e.ate : 0, Number.isFinite(quando) ? quando : 0, s]);
   }
-  fila.sort((a, b) => a[0] - b[0]);
-  return fila.slice(0, limite).map(([, s]) => s);
+  fila.sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+  return fila.slice(0, limite).map(([, , s]) => s);
 }
 
 /**
@@ -188,7 +199,8 @@ export async function apurarCidade(uf, mun, zonas, { cache = new Map(), signal, 
       const k = chaveEspera(pendentes[i]);
       if (x === "sem-bu" || (x && x.erro && x.erro.status === 404)) {
         aguardando++;
-        espera.set(k, Date.now() + ESPERA_404);
+        const n = (espera.get(k)?.n || 0) + 1;
+        espera.set(k, { n, ate: Date.now() + Math.min(ESPERA_MAX, ESPERA_404 * 2 ** (n - 1)) });
       } else if (x && x.erro) falhas.push(pendentes[i]);
       else espera.delete(k);
     });
