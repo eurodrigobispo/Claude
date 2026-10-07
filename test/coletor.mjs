@@ -161,6 +161,13 @@ const rr = lerResultado({
 });
 check("percentual sobre os válidos computados, como o TSE", Math.abs(rr.cands[0].votos / rr.votos.validos * 100 - rr.cands[0].pct) < 1e-6, String(rr.votos.validos));
 check("válidos, brancos e nulos fecham com o total", rr.votos.validos + rr.votos.brancos + rr.votos.nulos === rr.votos.total);
+// lote de boletins: seção que voltou 404 espera, e o lote avança para as outras
+const { escolherPendentes } = await import("../painel/js/bu.js");
+const secoesTeste = Array.from({ length: 5 }, (_, i) => ({ zona: "1", ns: String(i + 1), recebida: "t" }));
+const esperaTeste = new Map([["1/1@t", 2000], ["1/2@t", 2000], ["1/3@t", 500]]);
+const lote = escolherPendentes(secoesTeste, new Map([["1/4", { recebida: "t" }]]), esperaTeste, 2, 1000).map((s) => s.ns);
+check("lote pula boletins em espera e começa pelos nunca tentados", lote.join(",") === "5,3", lote.join(","));
+
 // voto em candidatura cancelada depois da carga da urna: nulo técnico para o TSE
 const { nulosTecnicos } = await import("../painel/js/bu.js");
 const [nt] = nulosTecnicos([{ validos: 110, votos: { "13": 60, "99": 40, L13: 10, branco: 3, nulo: 2 } }], new Set(["13", "L13"]));

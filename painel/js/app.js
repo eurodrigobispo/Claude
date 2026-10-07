@@ -402,6 +402,7 @@ async function carregarMatriz(ger, signal, soMudados = false) {
 async function matrizDoFeed(ger, uf, cargo) {
   try {
     const d = await feed.json(`uf/${uf}-c${cargo}.json`);
+    if (d.turno && d.turno !== tse.TURNO) return false;
     if (ger !== st.geracao) return true;
     const linhas = feed.linhasDaUf(d);
     if (uf === st.uf) st.linhasFeed = linhas;
@@ -539,8 +540,11 @@ async function abrirCidade(ger, mun) {
 async function zonasDoFeed(ger, mun) {
   try {
     const d = await feed.json(`zonas/${st.uf}-${mun}.json`);
-    // cada cargo de deputado vem no seu arquivo
+    // arquivo de outro turno, ou cargo que o coletor não soma: lê do TSE
+    if (d.turno && d.turno !== tse.TURNO) return false;
     const cod = codCargo();
+    if (!d.cargos[cod] && !(d.proporcionais || []).includes(cod) && d.proporcionais) return false;
+    // cada cargo de deputado vem no seu arquivo
     if (!d.cargos[cod] && (d.proporcionais || []).includes(cod)) {
       const p = await feed.json(`zonas/${st.uf}-${mun}-c${cod}.json`);
       d.cargos[cod] = { zonas: p.zonas, locais: p.locais };
@@ -592,6 +596,15 @@ function numerosValidos(r) {
     memoNumeros.set(r, s);
   }
   return s;
+}
+
+// lê no navegador os boletins de uma cidade grande que o coletor não cobre
+async function lerCidadeAqui() {
+  const c = st.cidade;
+  if (!c || !c.grande || !c.zonas) return;
+  st.cidade = { cd: c.cd, cache: new Map(), res: null, total: c.total, zonas: c.zonas, carga: { feitos: 0, total: c.total } };
+  renderTudo();
+  await apurarSecoes(st.geracao, c.cd);
 }
 
 async function apurarSecoes(ger, mun) {
@@ -1241,13 +1254,27 @@ function preencherFotos() {
   }
 }
 
+// Por que a cidade (ou a zona aberta) ainda não tem votos somados dos boletins:
+// ainda lendo, o coletor ainda somando, ou o TSE ainda sem publicar.
+function semBoletins() {
+  const c = st.cidade;
+  const nome = (munInfo(st.mun) || {}).nome || "esta cidade";
+  if (!c || !c.res) return st.zona ? "Lendo os boletins da zona…" : "Lendo os boletins de urna…";
+  const { lidas, recebidas } = c.res;
+  if (lidas < recebidas) {
+    const quem = c.feedZonas ? "O coletor está somando os boletins" : "Somando os boletins";
+    return `${st.zona ? `A zona ${st.zona} ainda não entrou na soma. ` : ""}${quem} de ${nome}: ${fmt.format(lidas)} de ${fmt.format(recebidas)} até agora.`;
+  }
+  return st.zona ? `O TSE ainda não publicou boletins da zona ${st.zona}.` : `O TSE ainda não publicou boletins de urna de ${nome}.`;
+}
+
 function renderHero() {
   if (visaoEstados()) return renderHeroEstados();
   const el = $("#hero");
   const rr = resultadoRecorte();
   const kicker = `${nomeCargo()} · ${nomeRecorte().join(" · ")}`;
   if (!rr || !rr.cands.length) {
-    definir(el, `<div class="kicker">${esc(kicker)}</div><p class="sent">${st.zona ? "Lendo os boletins da zona…" : "Carregando a apuração…"}</p>`);
+    definir(el, `<div class="kicker">${esc(kicker)}</div><p class="sent">${st.zona ? esc(semBoletins()) : "Carregando a apuração…"}</p>`);
     return;
   }
   const [a, b] = rr.cands;
@@ -1293,7 +1320,7 @@ function renderCandidatos() {
   const rr = resultadoRecorte();
   $("#candRecorte").textContent = rr ? rr.rotulo : "";
   if (!rr) {
-    el.innerHTML = `<li class="vazio">${st.zona ? "Lendo os boletins da zona…" : "Carregando…"}</li>`;
+    el.innerHTML = `<li class="vazio">${st.zona ? esc(semBoletins()) : "Carregando…"}</li>`;
     return;
   }
   const termo = semAcento($("#candFiltro").value.trim());
@@ -1678,7 +1705,16 @@ function renderTabela() {
   const c = !visaoEstados() && alvoN() && candInfo(alvoN());
   const res = st.cidade && st.cidade.res;
   const boletins = st.tabela.aba !== "areas" && res ? ` · ${fmt.format(res.lidas)} de ${fmt.format(res.recebidas)} boletins de urna publicados` : "";
-  $("#tabNota").textContent = c ? `Votos de ${c.nome}${st.cand ? "" : ", líder no recorte"}${boletins}` : "";
+  // locais que os dados abertos do TSE não georreferenciam ficam fora do mapa
+  let semMapa = 0;
+  if (st.tabela.aba === "locais" && st.locaisCidade) {
+    for (const g of gruposCidade("local")) {
+      const info = st.locaisCidade[g.zona] && st.locaisCidade[g.zona][g.local];
+      if (!info || info[3] == null || info[4] == null) semMapa++;
+    }
+  }
+  const foraDoMapa = semMapa ? ` · ${fmt.format(semMapa)} ${semMapa === 1 ? "local sem coordenada fica" : "locais sem coordenada ficam"} fora do mapa` : "";
+  $("#tabNota").textContent = c ? `Votos de ${c.nome}${st.cand ? "" : ", líder no recorte"}${boletins}${foraDoMapa}` : "";
 
   const cols = visaoEstados() ? (st.cargo === "5" ? COLUNAS_SENADO : COLUNAS_DISPUTAS) : COLUNAS[st.tabela.aba].filter(([k]) => k !== "delta" || ["1", "3", "5"].includes(st.cargo));
   const { ordem, desc } = st.tabela;
@@ -1700,15 +1736,20 @@ function renderTabela() {
     } else if (st.tabela.aba !== "areas" && st.cidade) {
       const nome = (munInfo(st.cidade.cd) || {}).nome || "Esta cidade";
       vazio = st.cidade.grande ? (feed.ativo()
-          ? `${nome} tem ${fmt.format(st.cidade.total)} seções. O coletor ainda não publicou as zonas desta cidade; elas aparecem aqui sozinhas assim que o primeiro lote de boletins for somado.`
-          : `${nome} tem ${fmt.format(st.cidade.total)} seções. Abrir zonas e locais nesse porte precisa do coletor no servidor (veja ARQUITETURA.md).`)
-        : st.cidade.erro || (st.cidade.res ? "O TSE ainda não publicou boletins de urna desta cidade." : "Lendo os boletins de urna…");
+          ? `${nome} tem ${fmt.format(st.cidade.total)} seções e o coletor ainda não publicou as zonas dela. Se ela estiver entre as cidades do coletor, aparecem aqui sozinhas no primeiro lote de boletins.`
+          : `${nome} tem ${fmt.format(st.cidade.total)} seções. Num servidor com o coletor, as zonas chegam já somadas.`)
+        : st.cidade.erro || semBoletins();
     } else {
       vazio = st.carga ? "Carregando…" : "Sem dados para este recorte.";
     }
   }
   $("#tabVazio").hidden = !vazio;
   $("#tabVazio").textContent = vazio;
+  // cidade grande que o coletor não cobre: dá para ler os boletins aqui mesmo
+  if (vazio && st.tabela.aba !== "areas" && st.cidade && st.cidade.grande && !estatico()) {
+    const min = Math.max(1, Math.round(st.cidade.total / 30 / 60));
+    $("#tabVazio").insertAdjacentHTML("beforeend", ` <button type="button" class="botao-link" data-ler-cidade>Ler os ${fmt.format(st.cidade.total)} boletins aqui no navegador (uns ${min} min)</button>`);
+  }
 }
 
 function celula(v, t, l, k) {
@@ -1855,6 +1896,8 @@ async function atualizarAoVivo() {
   if (feed.ativo()) {
     try {
       const ag = await feed.json("agora.json");
+      // o coletor trocou de turno (meia-noite do dia do 2º turno): recomeça
+      if (ag.turno && ag.turno !== tse.TURNO && !estatico()) { location.reload(); return; }
       const mudou = !st.agora || ag.seq !== st.agora.seq;
       st.agora = ag;
       if (mudou) carregarHistorico().then(() => { if (ger === st.geracao) renderDossie(); });
@@ -1943,6 +1986,10 @@ function ligarEventos() {
   $("#candFiltro").addEventListener("input", renderCandidatos);
 
   document.addEventListener("click", (e) => {
+    if (e.target.closest("[data-ler-cidade]")) {
+      lerCidadeAqui();
+      return;
+    }
     const cand = e.target.closest("[data-cand]");
     if (cand) {
       const n = cand.dataset.cand;

@@ -5,6 +5,9 @@ FROM node:22-alpine
 WORKDIR /app
 COPY painel ./painel
 COPY coletor ./coletor
+RUN mkdir -p /app/feed && chown node:node /app/feed
 ENV PORT=8080
 EXPOSE 8080
-CMD ["node", "coletor/servidor.mjs", "--coletar", "--saida", "/app/feed"]
+# nasce como root só para acertar o dono do volume do feed (que uma versão
+# anterior gravou como root) e passa para o usuário node (--usuario)
+CMD ["node", "coletor/servidor.mjs", "--coletar", "--saida", "/app/feed", "--usuario", "node"]

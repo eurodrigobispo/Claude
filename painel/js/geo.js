@@ -1,14 +1,15 @@
 // Malhas do IBGE (TopoJSON, qualidade mínima) decodificadas e projetadas em SVG.
-// A API do IBGE libera CORS, então o navegador busca as malhas direto.
 
 const IBGE = "https://servicodados.ibge.gov.br/api/v3/malhas";
 const cache = new Map();
 
-// Com window.PAINEL_CONFIG.malhas (ex.: "dados/malhas/"), as malhas vêm de
-// arquivos locais: estados.json, municipios-br.json e uf/<código IBGE>.json.
-export function urlMalha(nivel, ibgeUf) {
-  const local = globalThis.PAINEL_CONFIG && globalThis.PAINEL_CONFIG.malhas;
-  if (local) return local + (nivel === "estados" ? "estados.json" : nivel === "municipios-br" ? "municipios-br.json" : `uf/${ibgeUf}.json`);
+// As malhas salvas em dados/malhas/ (estados.json, municipios-br.json e
+// uf/<código IBGE>.json) vêm primeiro, para o painel não depender do IBGE na
+// noite da apuração; a API do IBGE fica de reserva. PAINEL_CONFIG.malhas troca
+// a pasta.
+export function urlMalha(nivel, ibgeUf, { ibge = false } = {}) {
+  const local = (globalThis.PAINEL_CONFIG && globalThis.PAINEL_CONFIG.malhas) || "dados/malhas/";
+  if (!ibge) return local + (nivel === "estados" ? "estados.json" : nivel === "municipios-br" ? "municipios-br.json" : `uf/${ibgeUf}.json`);
   const q = "formato=application/json&qualidade=minima";
   if (nivel === "estados") return `${IBGE}/paises/BR?intrarregiao=UF&${q}`;
   if (nivel === "municipios-br") return `${IBGE}/paises/BR?intrarregiao=municipio&${q}`;
@@ -16,16 +17,17 @@ export function urlMalha(nivel, ibgeUf) {
 }
 
 export function malha(nivel, ibgeUf) {
-  const u = urlMalha(nivel, ibgeUf);
-  if (!cache.has(u)) {
-    const p = fetch(u).then((r) => {
-      if (!r.ok) throw new Error("IBGE " + r.status);
+  const k = `${nivel}/${ibgeUf || ""}`;
+  if (!cache.has(k)) {
+    const ler = (u) => fetch(u).then((r) => {
+      if (!r.ok) throw new Error(`malha ${r.status}`);
       return r.json();
-    }).then(decodificar);
-    p.catch(() => cache.delete(u));
-    cache.set(u, p);
+    });
+    const p = ler(urlMalha(nivel, ibgeUf)).catch(() => ler(urlMalha(nivel, ibgeUf, { ibge: true }))).then(decodificar);
+    p.catch(() => cache.delete(k));
+    cache.set(k, p);
   }
-  return cache.get(u);
+  return cache.get(k);
 }
 
 // TopoJSON -> [{id, poligonos: [[anel [lon,lat]...]...]}]

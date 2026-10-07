@@ -17,7 +17,7 @@
 //   arquivo/<HHMM>.json   placar de cada minuto, para rever a noite
 //   estado.json           saúde do coletor
 
-import { mkdir, writeFile, rename, readFile } from "node:fs/promises";
+import { mkdir, writeFile, rename, readFile, readdir, rm } from "node:fs/promises";
 import { join } from "node:path";
 import * as tse from "../painel/js/tse.js";
 import { apurarCidade, agrupar } from "../painel/js/bu.js";
@@ -59,6 +59,7 @@ const estado = {
   historico: {},         // "cargo-uf" -> [[hora, % seções, {n: votos}]]
   eventos: [],
   candidatos: {},        // "cargo-uf" -> [{n, nome, partido, sq}]
+  zonasNoDisco: new Map(), // "uf-mun" -> boletins somados no arquivo publicado
   municipal: new Map(),  // "cargo-uf" -> Map(mun -> linha)
   zonas: new Map(),      // "uf-mun" -> {cache, res, proxima}
   secoes: new Map(),     // uf -> {quando, dados}
@@ -336,8 +337,8 @@ async function gravarUf(k) {
   const votos = {};
   for (const n of nums) votos[n] = col((l) => l.votos[n] || 0);
   await gravar(`uf/${uf}-c${cargo}.json`, {
-    versao: 1, gerado: new Date().toISOString(), cargo, uf, mun: muns,
-    hora: col((l) => l.hora), secoes: col((l) => l.secoes), totalizadas: col((l) => l.totalizadas),
+    versao: 1, gerado: new Date().toISOString(), turno: tse.TURNO, pleito: tse.PLEITO, cargo, uf, mun: muns,
+    quando: col((l) => l.quando || ""), hora: col((l) => l.hora), secoes: col((l) => l.secoes), totalizadas: col((l) => l.totalizadas),
     eleitorado: col((l) => l.eleitorado), eleitoradoApurado: col((l) => l.eleitoradoApurado),
     comparecimento: col((l) => l.comparecimento), abstencao: col((l) => l.abstencao),
     validos: col((l) => l.validos), brancos: col((l) => l.brancos), nulos: col((l) => l.nulos), votos
@@ -348,12 +349,17 @@ async function gravarUf(k) {
 
 function cidadesComZonas() {
   if (CONFIG.zonas === "nenhuma" || !municipios) return [];
-  if (CONFIG.zonas === "capitais") {
-    const out = [];
-    for (const uf of UFS) for (const m of municipios[uf] || []) if (m.capital) out.push({ uf, mun: m.cd });
-    return out;
+  // "capitais", uma lista uf:mun ou os dois juntos ("capitais,sp:06289")
+  const out = [];
+  for (const item of CONFIG.zonas.split(",").map((x) => x.trim()).filter(Boolean)) {
+    if (item === "capitais") {
+      for (const uf of UFS) for (const m of municipios[uf] || []) if (m.capital) out.push({ uf, mun: m.cd });
+    } else {
+      const [uf, mun] = item.toLowerCase().split(":");
+      if (uf && mun) out.push({ uf, mun: mun.padStart(5, "0") });
+    }
   }
-  return CONFIG.zonas.split(",").map((x) => { const [uf, mun] = x.split(":"); return { uf, mun }; });
+  return out.filter((c, i) => out.findIndex((x) => x.uf === c.uf && x.mun === c.mun) === i);
 }
 
 async function secoesDaUf(uf) {
@@ -384,8 +390,18 @@ export async function lerZonas() {
       const completa = res.baixadas < LOTE_ZONAS;
       z.proxima = completa ? Date.now() + 60e3 : 0;
       pendente ||= !completa;
-      await gravarZonas(uf, mun, res);
-      console.log(`[${agoraBrasilia()}] zonas ${uf}-${mun}: ${res.lidas} de ${res.recebidas} boletins`);
+      // depois de um reinício, o arquivo publicado (mais completo) fica no ar
+      // até a releitura alcançá-lo; e arquivo sem novidade não é regravado
+      const noDisco = estado.zonasNoDisco.get(`${uf}-${mun}`) || 0;
+      if (res.lidas < noDisco) {
+        console.log(`[${agoraBrasilia()}] zonas ${uf}-${mun}: relendo, ${res.lidas} de ${noDisco} boletins já publicados`);
+      } else if (res.lidas !== z.publicadas || res.recebidas !== z.recebidasPublicadas) {
+        await gravarZonas(uf, mun, res);
+        z.publicadas = res.lidas;
+        z.recebidasPublicadas = res.recebidas;
+        estado.zonasNoDisco.set(`${uf}-${mun}`, res.lidas);
+        console.log(`[${agoraBrasilia()}] zonas ${uf}-${mun}: ${res.lidas} de ${res.recebidas} boletins`);
+      }
     } catch (e) {
       estado.saude.ultimoErro = `zonas ${uf}-${mun}: ${e.message}`;
     }
@@ -398,7 +414,7 @@ export async function lerZonas() {
 // passam de 10 MB e quem abre o Presidente não precisa baixá-los.
 async function gravarZonas(uf, mun, res) {
   const base = {
-    versao: 1, gerado: new Date().toISOString(), uf, mun,
+    versao: 1, gerado: new Date().toISOString(), turno: tse.TURNO, pleito: tse.PLEITO, uf, mun,
     lidas: res.lidas, recebidas: res.recebidas, total: res.total, aguardando: res.aguardando
   };
   const enxuto = (g) => ({ zona: g.zona, local: g.local, secoes: g.secoes, comparecimento: g.comparecimento, validos: g.validos, votos: g.votos });
@@ -438,7 +454,7 @@ async function publicar() {
   await gravar("eventos.json", { versao: 1, seq, turno, pleito, eventos: estado.eventos.slice(0, 120).map(reescrito) });
 
   // um retrato por minuto para rever a noite
-  const minuto = agoraBrasilia().slice(0, 5).replace(":", "");
+  const minuto = new Date().toLocaleString("sv-SE", { timeZone: "America/Sao_Paulo" }).slice(0, 16).replace(/[-:]/g, "").replace(" ", "-");
   if (!estado.arquivados.has(minuto)) {
     estado.arquivados.add(minuto);
     await gravar(`arquivo/t${turno}/${minuto}.json`, agora);
@@ -500,21 +516,54 @@ async function retomar() {
   if (mesmo(ev) && ev.eventos) estado.eventos = ev.eventos;
   const idx = await lerJsonLocal(`arquivo/t${tse.TURNO}/indice.json`, null);
   if (idx && idx.minutos) idx.minutos.forEach((m) => estado.arquivados.add(m));
+
+  // matrizes e zonas já publicadas: um reinício continua delas em vez de
+  // publicar arquivos parciais por cima; os de outro turno são apagados
+  for (const pasta of ["uf", "zonas"]) {
+    let nomes = [];
+    try { nomes = await readdir(join(CONFIG.saida, pasta)); } catch (_) { continue; }
+    for (const nome of nomes.filter((x) => x.endsWith(".json"))) {
+      const d = await lerJsonLocal(`${pasta}/${nome}`, null);
+      if (!d) continue;
+      if (!mesmo(d)) {
+        await rm(join(CONFIG.saida, pasta, nome), { force: true });
+        continue;
+      }
+      if (pasta === "zonas" && !d.cargo) estado.zonasNoDisco.set(`${d.uf}-${d.mun}`, d.lidas || 0);
+      if (pasta === "uf" && d.mun && d.votos) estado.municipal.set(chave(d.cargo, d.uf), mapaDaUf(d));
+    }
+  }
 }
 
-// Sem turno forçado, confere o índice do TSE a cada 10 min; quando o pleito
-// muda (do 1º para o 2º turno), recomeça do zero sem misturar os dois.
+// arquivo uf/<uf>-c<cargo>.json de volta ao mapa por município do coletor
+function mapaDaUf(d) {
+  const mapa = new Map();
+  d.mun.forEach((mun, i) => {
+    const votos = {};
+    for (const [n, col] of Object.entries(d.votos)) if (col[i]) votos[n] = col[i];
+    mapa.set(mun, {
+      quando: d.quando ? d.quando[i] : "", hora: d.hora[i], secoes: d.secoes[i], totalizadas: d.totalizadas[i],
+      eleitorado: d.eleitorado[i], eleitoradoApurado: d.eleitoradoApurado[i], comparecimento: d.comparecimento[i],
+      abstencao: d.abstencao[i], validos: d.validos[i], brancos: d.brancos[i], nulos: d.nulos[i], votos
+    });
+  });
+  return mapa;
+}
+
+// Confere o índice do TSE a cada 10 min, com ou sem turno forçado: quando o
+// pleito muda (do 1º para o 2º turno, ou dos códigos anunciados do 2º turno
+// para o pleito publicado), recomeça do zero sem misturar os dois.
 let proximaConferencia = 0;
 async function conferirTurno() {
-  if (CONFIG.turno || Date.now() < proximaConferencia) return;
+  if (Date.now() < proximaConferencia) return;
   proximaConferencia = Date.now() + 600e3;
   const antes = `${tse.PLEITO}-${tse.FEDERAL}`;
-  await tse.configurar();
+  await tse.configurar({ turno: CONFIG.turno });
   if (`${tse.PLEITO}-${tse.FEDERAL}` === antes) return;
   console.log(`[${agoraBrasilia()}] novo pleito ${tse.PLEITO}, ${tse.TURNO}º turno: recomeçando`);
   Object.assign(estado, {
     corridas: new Map(), historico: {}, eventos: [], candidatos: {}, municipal: new Map(),
-    zonas: new Map(), secoes: new Map(), arquivados: new Set()
+    zonas: new Map(), secoes: new Map(), arquivados: new Set(), zonasNoDisco: new Map()
   });
   municipios = null;
   await retomar();

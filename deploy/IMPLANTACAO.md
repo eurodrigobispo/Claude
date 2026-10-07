@@ -9,7 +9,7 @@ O caminho recomendado é Docker. São cerca de 15 minutos.
 
 ## 1. O que você precisa
 
-- **Um servidor (VPS) com Ubuntu 22.04 ou 24.04.** Recomendado: 2 vCPU e 4 GB de RAM; com isso o coletor dá conta de todas as capitais. Com 1 vCPU e 2 GB, use `ZONAS=nenhuma`. Serve qualquer provedor: Hetzner, DigitalOcean, Contabo, Hostinger, Locaweb, AWS Lightsail.
+- **Um servidor (VPS) com Ubuntu 22.04 ou 24.04.** Recomendado: 2 vCPU e 4 GB de RAM; com isso o coletor dá conta de todas as capitais com os cinco cargos (no 1º turno de 2026 ele chegou a 2,1 GB). Com 2 GB, use `ZONAS_CARGOS=1,3,5` e `MEMORIA_MB=1536`; com 1 GB, `ZONAS=nenhuma`. Serve qualquer provedor: Hetzner, DigitalOcean, Contabo, Hostinger, Locaweb, AWS Lightsail.
 - **Um domínio ou subdomínio**, por exemplo `apuracao.seudominio.com.br`.
 - **Acesso SSH** ao servidor.
 
@@ -64,7 +64,9 @@ Troque `DOMINIO` e `EMAIL`. As demais opções podem ficar como estão:
 | `EMAIL` | | Usado pelo Let's Encrypt para o certificado HTTPS |
 | `PARALELO` | `12` | Pedidos simultâneos ao TSE |
 | `ZONAS` | `capitais` | Cidades com zonas lidas dos boletins: `capitais`, `nenhuma` ou lista `sp:71072,rj:60011` |
-| `MUNICIPIOS` | `1,3,5` | Cargos com matriz por município; `1,3,5,6,7` inclui deputados (bem mais pesado) |
+| `ZONAS_CARGOS` | `1,3,5,6,7` | Cargos somados nas zonas e locais; `1,3,5` deixa os deputados só por município e economiza uns 1,5 GB de memória |
+| `MUNICIPIOS` | `1,3,5,6,7` | Cargos com matriz por município; sem `6,7`, cada navegador lê os deputados direto do TSE |
+| `MEMORIA_MB` | `3072` | Memória máxima do coletor; deixe 1 GB livre para o sistema |
 | `TURNO` | `0` | `0` segue o TSE e troca sozinho para o 2º turno; `1` ou `2` força |
 
 ## 6. Suba
@@ -109,9 +111,13 @@ O contêiner reinicia sozinho se cair ou se o servidor reiniciar. O Docker tamb�
 
 ## 2º turno (25/10)
 
-Não precisa fazer nada. A cada 10 minutos o coletor confere o índice de eleições do TSE. Quando o 2º turno for publicado, ele troca sozinho, começa um histórico novo e guarda o do 1º turno em `arquivo/t1/`. O painel mostra só Presidente e Governador.
+Não precisa fazer nada. A cada 10 minutos o coletor confere o índice de eleições do TSE. Quando o 2º turno for publicado, ele troca sozinho, começa um histórico novo, guarda o do 1º turno em `arquivo/t1/` e apaga as matrizes e zonas do 1º turno. O painel mostra só Presidente e Governador, e quem estiver com ele aberto na virada recarrega sozinho.
 
-Para forçar, ponha `TURNO=2` no `deploy/.env` e rode o passo 6.
+Para forçar, ponha `TURNO=2` no `deploy/.env` e rode o passo 6. Antes de o TSE publicar o pleito do 2º turno, o coletor usa os códigos que o TSE já anuncia; ele continua conferindo o índice e passa para o pleito publicado assim que ele sair.
+
+## Reiniciar no meio da apuração
+
+Pode reiniciar (ou atualizar o pacote) a qualquer momento. O coletor retoma o histórico, os eventos e as matrizes já publicadas, e as zonas de cada cidade continuam no ar com o que já tinha sido somado até a releitura alcançá-las.
 
 ## Muita gente ao mesmo tempo
 
@@ -149,7 +155,14 @@ https://<usuário>.github.io/<repositório>/painel/?feed=https://apuracao.seudom
    sudo systemctl daemon-reload
    sudo systemctl enable --now painel-eleitoral
    ```
-4. Coloque um proxy com HTTPS na frente da porta 8080. O mais simples é o Caddy (`sudo apt install caddy`), com este `/etc/caddy/Caddyfile`:
+4. Coloque um proxy com HTTPS na frente da porta 8080. O mais simples é o Caddy, que não vem nos repositórios do Ubuntu; instale pelo repositório oficial:
+   ```
+   sudo apt install -y debian-keyring debian-archive-keyring apt-transport-https curl
+   curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' | sudo gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg
+   curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' | sudo tee /etc/apt/sources.list.d/caddy-stable.list
+   sudo apt update && sudo apt install -y caddy
+   ```
+   e use este `/etc/caddy/Caddyfile`:
    ```
    apuracao.seudominio.com.br {
    	encode zstd gzip
@@ -164,9 +177,9 @@ https://<usuário>.github.io/<repositório>/painel/?feed=https://apuracao.seudom
 | --- | --- |
 | `/api/saude` responde 503 | O coletor não está conseguindo ler o TSE. Veja os registros; costuma ser rede ou firewall de saída |
 | O painel diz "Leitura direta do TSE" | O painel não achou `/feed/`. Abra pelo domínio do servidor, ou use `?feed=` |
-| Zonas de uma capital ainda vazias | O coletor lê os boletins em lotes de 1.500. A capital paulista leva uns 20 minutos na primeira passada |
+| Zonas de uma capital ainda vazias | O coletor lê os boletins em lotes de 1.500, revezando entre as capitais. Com deputados, a capital paulista leva de 30 a 50 minutos na primeira passada; a página mostra quantos boletins já foram somados |
 | Certificado não sai | O domínio ainda não aponta para o IP, ou as portas 80 e 443 estão fechadas |
-| Memória alta | Diminua `ZONAS` (por exemplo, só algumas capitais) ou volte `MUNICIPIOS` para `1,3,5` |
+| Memória alta ou contêiner reiniciando | Use `ZONAS_CARGOS=1,3,5` (deputados só por município) ou diminua `ZONAS` (algumas capitais) |
 
 ## Testes (opcional, no seu computador)
 

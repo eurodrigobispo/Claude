@@ -91,8 +91,9 @@ O painel (`painel/index.html`) é estático e lê tudo direto da fonte:
   do município) com o número de cada zona. Releitura a cada 3 min, só das
   seções novas ou ainda não publicadas.
 - **Comparação com 2022.** Usa a votação por município e zona de 2022 para
-  Presidente, Governador e Senador: mesmo número no mesmo cargo ou, sem ele, o
-  candidato do mesmo partido mais votado em 2022.
+  Presidente, Governador e Senador, sempre contra o mesmo partido (ou o partido
+  que ele sucedeu): o mesmo número no mesmo cargo ou, sem ele, o candidato do
+  partido mais votado em 2022.
 - **Leitura estratégica.** Concentração do voto, perfil por porte de município,
   redutos, colégios onde perde terreno, voto a conquistar e variação contra 2022.
 - **Busca.** Indexa os 18.853 candidatos com votação divulgada (Presidente;

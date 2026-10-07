@@ -2,9 +2,8 @@
 //
 //   node coletor/servidor.mjs --porta 8080 --coletar
 //
-// Serve a raiz do repositório (o painel fica em /painel/), a pasta do feed em
-// /feed/ e a rota /api/vivo, que conta quantas pessoas estão com o painel
-// aberto agora. Com --coletar, roda o coletor no mesmo processo.
+// Serve o painel em /painel/, a pasta do feed em /feed/ e a rota /api/vivo,
+// que conta quantas pessoas estão com o painel aberto agora. Com --coletar, roda o coletor no mesmo processo.
 // Atrás de uma CDN, só /api/vivo precisa chegar até aqui; /feed/ aguenta cache
 // de poucos segundos.
 
@@ -27,6 +26,19 @@ const PORTA = Number(opcao("porta", process.env.PORT || 8080));
 const JANELA_VIVO = 45e3;
 const coletando = args.includes("--coletar");
 
+// No contêiner o processo nasce como root só para acertar o dono da pasta do
+// feed (que uma versão anterior pode ter gravado como root) e logo passa para
+// o usuário de --usuario.
+const usuario = opcao("usuario", "");
+if (usuario && process.getuid && process.getuid() === 0) {
+  const { execFileSync } = await import("node:child_process");
+  const { mkdirSync } = await import("node:fs");
+  mkdirSync(FEED, { recursive: true });
+  try { execFileSync("chown", ["-R", `${usuario}:${usuario}`, FEED]); } catch (e) { console.error(`chown ${FEED}: ${e.message}`); }
+  process.setgid(usuario);
+  process.setuid(usuario);
+}
+
 const TIPOS = {
   ".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".mjs": "text/javascript; charset=utf-8",
   ".css": "text/css; charset=utf-8", ".json": "application/json; charset=utf-8", ".md": "text/plain; charset=utf-8",
@@ -36,12 +48,28 @@ const COMPRIMIR = new Set([".html", ".js", ".mjs", ".css", ".json", ".md", ".svg
 
 // ---------- pessoas online ----------
 
+// A limpeza roda num relógio, não a cada pedido: com dezenas de milhares de
+// abas abertas, varrer o mapa em cada sinal ocupava o mesmo processo do
+// coletor. O mapa tem teto, e cada endereço registra no máximo NOVOS_POR_IP
+// abas novas por minuto (o bastante para um escritório atrás de um IP só).
 const vistos = new Map(); // id -> último sinal
-function contarVivos() {
+const MAX_VISTOS = 200_000;
+const NOVOS_POR_IP = 300;
+const novosPorIp = new Map();
+setInterval(() => {
   const limite = Date.now() - JANELA_VIVO;
   for (const [id, t] of vistos) if (t < limite) vistos.delete(id);
-  return vistos.size;
+}, 5e3).unref();
+setInterval(() => novosPorIp.clear(), 60e3).unref();
+function registrarVivo(id, ip) {
+  if (!vistos.has(id)) {
+    const n = novosPorIp.get(ip) || 0;
+    if (vistos.size >= MAX_VISTOS || n >= NOVOS_POR_IP) return;
+    novosPorIp.set(ip, n + 1);
+  }
+  vistos.set(id, Date.now());
 }
+const contarVivos = () => vistos.size;
 
 async function corpo(req, max = 256) {
   let dados = "";
@@ -102,7 +130,9 @@ const servidor = createServer(async (req, res) => {
       if (req.method === "OPTIONS") { res.writeHead(204, cab); res.end(); return; }
       if (req.method === "POST") {
         const id = (await corpo(req)).trim().slice(0, 32);
-        if (/^[A-Za-z0-9_-]{8,32}$/.test(id)) vistos.set(id, Date.now());
+        // atrás do Caddy, o endereço de quem pediu vem em X-Forwarded-For
+        const ip = String(req.headers["x-forwarded-for"] || req.socket.remoteAddress || "").split(",")[0].trim();
+        if (/^[A-Za-z0-9_-]{8,32}$/.test(id)) registrarVivo(id, ip);
       }
       res.writeHead(200, cab);
       res.end(JSON.stringify({ n: contarVivos() }));
@@ -132,8 +162,10 @@ const servidor = createServer(async (req, res) => {
       await servirArquivo(req, res, arq, "public, max-age=5, stale-while-revalidate=30");
       return;
     }
-    const arq = caminhoSeguro(RAIZ, decodeURIComponent(u.pathname));
-    if (!arq || /[/\\]\.(git|env)/.test(arq)) { res.writeHead(404); res.end(); return; }
+    // fora do feed e da API, só o painel é público
+    if (u.pathname === "/painel") { res.writeHead(301, { location: "/painel/" }); res.end(); return; }
+    const arq = u.pathname.startsWith("/painel/") ? caminhoSeguro(join(RAIZ, "painel"), decodeURIComponent(u.pathname.slice("/painel/".length))) : null;
+    if (!arq || /[/\\]\./.test(arq.slice(RAIZ.length))) { res.writeHead(404, { "content-type": "text/plain; charset=utf-8" }); res.end("não encontrado"); return; }
     await servirArquivo(req, res, arq, "public, max-age=60");
   } catch (e) {
     if (!res.headersSent) res.writeHead(500);

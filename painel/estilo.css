@@ -463,6 +463,7 @@ button.crow:hover .nm { text-decoration: underline; text-decoration-color: #fafa
 .crow .nm { display: block; font-weight: 500; font-size: var(--t-body); line-height: 1.3; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .crow .pm { font-size: var(--t-micro); }
 .pm .sit { color: var(--fg-2); font-weight: 400; }
+.botao-link { padding: 0; border: 0; background: none; color: var(--fg); font: inherit; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
 .crow .val { text-align: right; font-weight: 500; font-size: var(--t-body); }
 .crow .val small { display: block; font-weight: 400; font-size: var(--t-micro); color: var(--fg-3); }
 .crow .bar { grid-column: 2 / 4; position: relative; height: 3px; border-radius: 3px; background: var(--panel-3); }

@@ -116,6 +116,30 @@ export function lerBU(b) {
 
 // ---------- apuração de uma cidade ----------
 
+// Seção totalizada cujo boletim ainda não saiu (404) espera um pouco antes do
+// próximo pedido. Sem isso, um lote com 1.500 seções nessa situação se repetia
+// sem fim: na noite do 1º turno, a capital paulista ficou parada em 727 de
+// 26.683 boletins das 21h43 às 22h45.
+const ESPERA_404 = 90e3;
+const chaveEspera = (s) => `${s.zona}/${s.ns}@${s.recebida}`;
+
+/**
+ * Escolhe até `limite` seções a baixar: as que ainda não estão no cache (ou
+ * chegaram de novo), fora as que esperam depois de um 404; primeiro as nunca
+ * tentadas, depois as que esperam há mais tempo.
+ */
+export function escolherPendentes(recebidas, cache, espera, limite = Infinity, agora = Date.now()) {
+  const fila = [];
+  for (const s of recebidas) {
+    if (cache.get(`${s.zona}/${s.ns}`)?.recebida === s.recebida) continue;
+    const ate = espera.get(chaveEspera(s)) || 0;
+    if (ate > agora) continue;
+    fila.push([ate, s]);
+  }
+  fila.sort((a, b) => a[0] - b[0]);
+  return fila.slice(0, limite).map(([, s]) => s);
+}
+
 /**
  * Baixa e soma os BUs de todas as seções recebidas de um município.
  * `zonas` vem de tse.secoes(uf)[mun]. Seções já lidas (no `cache`) e sem nova
@@ -148,7 +172,8 @@ export async function apurarCidade(uf, mun, zonas, { cache = new Map(), signal, 
   };
 
   // `limite` deixa o coletor avançar cidades grandes aos poucos, publicando a cada lote
-  let pendentes = recebidas.filter((s) => cache.get(`${s.zona}/${s.ns}`)?.recebida !== s.recebida).slice(0, limite);
+  const espera = (cache.espera ||= new Map());
+  let pendentes = escolherPendentes(recebidas, cache, espera, limite);
   const total = pendentes.length;
   let feitos = 0, aguardando = 0;
   for (const n of [16, 6, 3]) {
@@ -160,8 +185,12 @@ export async function apurarCidade(uf, mun, zonas, { cache = new Map(), signal, 
     const falhas = [];
     aguardando = 0;
     r.forEach((x, i) => {
-      if (x === "sem-bu" || (x && x.erro && x.erro.status === 404)) aguardando++;
-      else if (x && x.erro) falhas.push(pendentes[i]);
+      const k = chaveEspera(pendentes[i]);
+      if (x === "sem-bu" || (x && x.erro && x.erro.status === 404)) {
+        aguardando++;
+        espera.set(k, Date.now() + ESPERA_404);
+      } else if (x && x.erro) falhas.push(pendentes[i]);
+      else espera.delete(k);
     });
     feitos -= falhas.length;
     pendentes = falhas;
@@ -172,6 +201,8 @@ export async function apurarCidade(uf, mun, zonas, { cache = new Map(), signal, 
     const c = cache.get(`${s.zona}/${s.ns}`);
     if (c) secoes.push(c.bu);
   }
+  // aguardando: recebidas pelo TSE e ainda sem boletim lido (inclui as que esperam após um 404)
+  aguardando = recebidas.filter((s) => cache.get(`${s.zona}/${s.ns}`)?.recebida !== s.recebida).length;
   return { secoes, lidas: secoes.length, recebidas: recebidas.length, aguardando, falhas: pendentes.length, total: lista.length, baixadas: total };
 }
 
