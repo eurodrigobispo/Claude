@@ -7,6 +7,24 @@ O pacote tem tudo num lugar só:
 
 O caminho recomendado é Docker. São cerca de 15 minutos.
 
+## Rodar no seu computador
+
+Para usar sozinho ou mostrar numa reunião, não precisa de servidor:
+
+1. Instale o **Node 22** (ou mais novo) em https://nodejs.org.
+2. Descompacte o pacote numa pasta.
+3. Dê dois cliques no atalho do seu sistema:
+   - Windows: `iniciar-windows.bat` (se o Windows avisar, "Mais informações" e "Executar assim mesmo");
+   - Mac: `iniciar-mac.command` (na primeira vez, clique com o botão direito e "Abrir");
+   - Linux: `./iniciar-linux.sh` no terminal.
+4. O painel abre em `http://localhost:8080/painel/`. Deixe a janela preta aberta; para parar, feche-a.
+
+Os dados ficam na pasta `feed/`, ao lado dos atalhos. Fechar e abrir de novo continua de onde parou.
+
+Outras pessoas na mesma rede podem abrir `http://IP-do-seu-computador:8080/painel/` (permita o acesso se o firewall perguntar). Para um link público temporário, sem servidor, o túnel gratuito da Cloudflare serve: com o painel aberto, rode `cloudflared tunnel --url http://localhost:8080` e compartilhe o endereço `https://….trycloudflare.com` que ele mostrar.
+
+Na noite da apuração, o computador precisa ficar ligado na tomada, sem hibernar e com internet. O coletor usa até uns 2 GB de memória. Para muita gente ao mesmo tempo, prefira o servidor descrito abaixo.
+
 ## 1. O que você precisa
 
 - **Um servidor (VPS) com Ubuntu 22.04 ou 24.04.** Recomendado: 2 vCPU e 4 GB de RAM; com isso o coletor dá conta de todas as capitais com os cinco cargos (no 1º turno de 2026 ele chegou a 2,1 GB). Com 2 GB, use `ZONAS_CARGOS=1,3,5` e `MEMORIA_MB=1536`; com 1 GB, `ZONAS=nenhuma`. Serve qualquer provedor: Hetzner, DigitalOcean, Contabo, Hostinger, Locaweb, AWS Lightsail.

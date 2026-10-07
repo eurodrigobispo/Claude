@@ -110,6 +110,10 @@ node test/apuracao.mjs
 
 # Painel Eleitoral 2026
 
+> **No seu computador:** instale o Node 22 e dê dois cliques em
+> `iniciar-windows.bat`, `iniciar-mac.command` ou `iniciar-linux.sh`; o painel
+> abre em `http://localhost:8080/painel/`.
+>
 > **Para subir num servidor:** siga `deploy/IMPLANTACAO.md`. Com Docker é um
 > comando só: `docker compose -f deploy/docker-compose.yml --env-file deploy/.env up -d --build`.
 
